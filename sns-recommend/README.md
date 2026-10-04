@@ -1,7 +1,16 @@
-# SNS 추천 서비스 실습
+# 1. 실습 환경
 
-기존 SNS에 연결할 추천 API와 worker를 단계적으로 만듭니다. `main`은 시작점이에요.
+로컬 PostgreSQL과 Redis, 합성 게시글 200개와 사용자 3명을 준비합니다.
 
-`main → part-1-environment → part-2-feed-api → part-3-events → part-4-indexing → part-5-retrieval → part-6-reranking → part-7-langgraph → part-8-evaluation → part-9-resilience`
+```sh
+uv sync --locked
+docker compose up -d --wait
+uv run sns-rec init
+uv run sns-rec seed
+uv run sns-rec status
+uv run pytest
+```
 
-각 브랜치의 README에 실행 방법이 있습니다. 전체 자료는 상위 폴더의 `materials/`에서 확인해요.
+`posts: 200`, `users: 3`을 확인해요. 기존 SNS 프로젝트와 다른 포트를 사용합니다.
+
+자료: [도메인](../materials/domain/01-environment.md), [실습](../materials/labs/01-environment.md).
