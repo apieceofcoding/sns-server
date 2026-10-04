@@ -1,14 +1,16 @@
-# 3. 게시글과 행동 전달
+# 4. 게시글 색인
 
-2단계의 조회 경로에 이벤트 접수와 작업 테이블을 추가합니다. 중복 이벤트와 오래된 게시글 버전을 구분해요.
+LangChain Document와 임베딩 인터페이스로 글을 준비하고 pgvector에 저장합니다.
 
 ```sh
 uv sync --locked
 uv run sns-rec init
-uv run sns-rec source-post --post 1001
-uv run uvicorn sns_recommend.api:app --port 8001
+uv run sns-rec seed
+uv run sns-rec index
+uv run python -m sns_recommend.worker --once
+uv run pytest
 ```
 
-다른 터미널에서 `uv run sns-rec relay`를 두 번 실행합니다. 첫 실행은 1건, 두 번째는 0건 전달해요. 전송 후 응답을 받기 전에 중단되면 다시 전달되며, 수신자가 이벤트 ID로 중복을 제거합니다.
+기본 `MODEL_MODE=fixture`는 합성 주제 벡터입니다. Gemini의 실제 출력이 아니에요. `live`는 실제 호출, `record`는 호출과 응답 저장, `replay`는 저장 파일 재생입니다. live/record는 호출당 최대 20개 글부터 처리합니다. 여러 번 `index`를 실행해 나머지를 처리해요.
 
-Outbox 시연은 별도 `source_demo` 스키마를 사용합니다. 실제 SNS에서는 원본 SNS DB의 트랜잭션과 Outbox를 사용해요. 이 단계는 작업을 저장하며 worker 실행은 다음 단계에서 추가합니다.
+모델과 차원이 다른 벡터는 검색에 섞지 않습니다. 수정 중 완료된 오래된 임베딩 결과는 버전 검사로 저장하지 않아요.
