@@ -2,17 +2,22 @@ import argparse
 import json
 from .db import initialize, connection
 from .seed import seed
+from .baseline import baseline
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["init", "seed", "status"])
+    parser.add_argument("command", choices=["init", "seed", "status", "baseline"])
+    parser.add_argument("--user", type=int, default=1)
+    parser.add_argument("--strategy", choices=["latest", "popular"], default="latest")
     args = parser.parse_args()
     if args.command == "init":
         initialize()
         result = {"schema": "ready"}
     elif args.command == "seed":
         result = seed()
+    elif args.command == "baseline":
+        result = baseline(args.user, args.strategy)
     else:
         with connection() as conn:
             result = {"posts": conn.execute("SELECT count(*) AS n FROM posts").fetchone()["n"],
