@@ -1,7 +1,9 @@
 from contextlib import contextmanager
 from pathlib import Path
+
 import psycopg
 from psycopg.rows import dict_row
+
 from .config import settings
 
 

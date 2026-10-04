@@ -1,6 +1,6 @@
-from .jobs import allocate_generation
 from .db import connection
 from .feed import publish
+from .jobs import allocate_generation
 
 
 def baseline(user_id, strategy="latest"):

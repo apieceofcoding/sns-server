@@ -1,10 +1,12 @@
 import argparse
 import json
 import time
-from .jobs import claim, finish, retry
-from .indexing import index_posts
-from .retrieval import process_profile
+
 from .graph import run_graph
+from .indexing import index_posts
+from .jobs import claim, finish, retry
+from .retrieval import process_profile
+from .scheduling import schedule_active
 
 
 def run_one():
@@ -30,9 +32,13 @@ def main():
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
     if args.once:
-        print(json.dumps({"processed":run_one()}))
+        print(json.dumps({"processed": run_one()}))
     else:
+        last_schedule = 0
         while True:
+            if time.monotonic() - last_schedule >= 30:
+                schedule_active()
+                last_schedule = time.monotonic()
             if not run_one():
                 time.sleep(1)
 

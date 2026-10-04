@@ -1,19 +1,39 @@
 import argparse
 import json
-from .db import initialize, connection
-from .seed import seed
+
 from .baseline import baseline
-from .source_demo import change_post, relay
-from .indexing import index_posts
-from .retrieval import generate_embedding
-from .ranking import generate
-from .graph import start_graph
+from .benchmark import benchmark
+from .db import connection, initialize
 from .evaluation import evaluate
+from .graph import start_graph
+from .indexing import index_posts
+from .ranking import generate
+from .retrieval import generate_embedding
+from .scheduling import schedule_active
+from .seed import seed
+from .source_demo import change_post, relay
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["init", "seed", "status", "baseline", "source-post", "relay", "index", "embedding", "generate", "graph", "evaluate"])
+    parser.add_argument(
+        "command",
+        choices=[
+            "init",
+            "seed",
+            "status",
+            "baseline",
+            "source-post",
+            "relay",
+            "index",
+            "embedding",
+            "generate",
+            "graph",
+            "evaluate",
+            "benchmark",
+            "schedule",
+        ],
+    )
     parser.add_argument("--user", type=int, default=1)
     parser.add_argument("--strategy", choices=["latest", "popular"], default="latest")
     parser.add_argument("--post", type=int, default=1001)
@@ -38,11 +58,17 @@ def main():
     elif args.command == "generate":
         result = generate(args.user)
     elif args.command == "graph":
-        result = start_graph(args.user,args.pause_after_rerank)
+        result = start_graph(args.user, args.pause_after_rerank)
     elif args.command == "evaluate":
         result = evaluate()
+    elif args.command == "benchmark":
+        result = benchmark(args.user)
+    elif args.command == "schedule":
+        result = schedule_active()
     else:
         with connection() as conn:
-            result = {"posts": conn.execute("SELECT count(*) AS n FROM posts").fetchone()["n"],
-                      "users": conn.execute("SELECT count(*) AS n FROM users").fetchone()["n"]}
+            result = {
+                "posts": conn.execute("SELECT count(*) AS n FROM posts").fetchone()["n"],
+                "users": conn.execute("SELECT count(*) AS n FROM users").fetchone()["n"],
+            }
     print(json.dumps(result, ensure_ascii=False, default=str))

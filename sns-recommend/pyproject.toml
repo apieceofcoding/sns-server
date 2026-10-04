@@ -32,3 +32,6 @@ line-length = 100
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = ["integration: requires course PostgreSQL and Redis"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

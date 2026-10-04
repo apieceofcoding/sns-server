@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import Literal
+
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -18,6 +19,9 @@ class Settings(BaseSettings):
     refresh_seconds: int = 300
     lease_seconds: int = 120
     daily_call_limit: int = 20
+    minimum_refresh_seconds: int = 60
+    input_usd_per_million: float | None = None
+    output_usd_per_million: float | None = None
     recordings_dir: str = "recordings"
 
 

@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+
 from .db import connection
 
 TOPICS = {
@@ -11,15 +12,25 @@ TOPICS = {
 
 
 def seed():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     with connection() as conn:
         for user_id, interests in enumerate(list(TOPICS.values())[:3], 1):
-            conn.execute("INSERT INTO users(id,interests) VALUES (%s,%s) ON CONFLICT DO NOTHING",
-                         (user_id, interests))
+            conn.execute(
+                "INSERT INTO users(id,interests) VALUES (%s,%s) ON CONFLICT DO NOTHING",
+                (user_id, interests),
+            )
         for i in range(1, 201):
             topic = list(TOPICS)[i % 5]
-            conn.execute("""INSERT INTO posts(id,author_id,body,topic,likes,created_at)
+            conn.execute(
+                """INSERT INTO posts(id,author_id,body,topic,likes,created_at)
                 VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
-                         (i, 10 + i % 20, f"{TOPICS[topic]}: 오늘의 기록 {i}", topic,
-                          (i * 17) % 101, now - timedelta(minutes=201-i)))
+                (
+                    i,
+                    10 + i % 20,
+                    f"{TOPICS[topic]}: 오늘의 기록 {i}",
+                    topic,
+                    (i * 17) % 101,
+                    now - timedelta(minutes=201 - i),
+                ),
+            )
     return {"users": 3, "posts": 200, "data": "synthetic"}

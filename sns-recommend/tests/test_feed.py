@@ -1,7 +1,8 @@
 import pytest
-from sns_recommend.feed import cursor_decode, cursor_encode
 from fastapi.testclient import TestClient
+
 from sns_recommend.api import app
+from sns_recommend.feed import cursor_decode, cursor_encode
 
 
 def test_cursor_cannot_move_to_another_user():
