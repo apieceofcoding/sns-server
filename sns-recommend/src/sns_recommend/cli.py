@@ -5,11 +5,12 @@ from .seed import seed
 from .baseline import baseline
 from .source_demo import change_post, relay
 from .indexing import index_posts
+from .retrieval import generate_embedding
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["init", "seed", "status", "baseline", "source-post", "relay", "index"])
+    parser.add_argument("command", choices=["init", "seed", "status", "baseline", "source-post", "relay", "index", "embedding"])
     parser.add_argument("--user", type=int, default=1)
     parser.add_argument("--strategy", choices=["latest", "popular"], default="latest")
     parser.add_argument("--post", type=int, default=1001)
@@ -28,6 +29,8 @@ def main():
         result = relay()
     elif args.command == "index":
         result = index_posts()
+    elif args.command == "embedding":
+        result = generate_embedding(args.user)
     else:
         with connection() as conn:
             result = {"posts": conn.execute("SELECT count(*) AS n FROM posts").fetchone()["n"],
