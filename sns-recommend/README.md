@@ -1,14 +1,16 @@
-# 6. Gemini 재정렬
+# 7. LangGraph 추천 생성과 복구
 
-검색 후보를 한 번에 전달하고 ID 순서만 받습니다. 결과가 후보의 순열인지 검사한 뒤 다양성을 조정해요.
+앞에서 만든 함수를 StateGraph 노드로 연결합니다. 상태는 PostgreSQL에, 완성된 목록은 Redis에 저장해요.
 
 ```sh
 uv sync --locked
 uv run sns-rec init
-uv run sns-rec generate --user 1
+uv run sns-rec graph --user 1 --pause-after-rerank
+uv run python -m sns_recommend.worker --once
+uv run sns-rec graph --user 2
 uv run pytest
 ```
 
-기본값은 합성 fixture이며 `fixture_llm`로 표시합니다. 실제 Gemini를 호출하지 않아요. 실제 호출은 `.env`에 `MODEL_MODE=live`와 개인 `GOOGLE_API_KEY`를 설정합니다. 무료 한도를 확인한 뒤 합성 데이터만 사용합니다.
+첫 명령은 재정렬 노드의 체크포인트 저장 후 작업을 멈추고 lease를 만료시킵니다. 다음 worker가 같은 작업 ID로 검증부터 재개해요. 모델 응답과 체크포인트 저장 사이의 장애에서는 호출이 반복될 수 있습니다.
 
-시간 초과, 잘못된 ID와 출력 오류는 `rules_fallback`으로 대체합니다. 순위는 클릭 확률이 아닙니다. `record`로 저장한 실제 결과만 `replay` 모드에서 재생해요.
+작업 예약과 lease는 DB 작업 테이블, 단계 상태는 LangGraph, 멱등 발행은 우리 Redis 코드가 담당해요. 새로운 생성 세대가 예약되면 오래된 결과는 발행하지 않습니다.

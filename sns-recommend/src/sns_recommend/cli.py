@@ -7,15 +7,17 @@ from .source_demo import change_post, relay
 from .indexing import index_posts
 from .retrieval import generate_embedding
 from .ranking import generate
+from .graph import start_graph
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["init", "seed", "status", "baseline", "source-post", "relay", "index", "embedding", "generate"])
+    parser.add_argument("command", choices=["init", "seed", "status", "baseline", "source-post", "relay", "index", "embedding", "generate", "graph"])
     parser.add_argument("--user", type=int, default=1)
     parser.add_argument("--strategy", choices=["latest", "popular"], default="latest")
     parser.add_argument("--post", type=int, default=1001)
     parser.add_argument("--body", default="Python PostgreSQL 백엔드 실습")
+    parser.add_argument("--pause-after-rerank", action="store_true")
     args = parser.parse_args()
     if args.command == "init":
         initialize()
@@ -34,6 +36,8 @@ def main():
         result = generate_embedding(args.user)
     elif args.command == "generate":
         result = generate(args.user)
+    elif args.command == "graph":
+        result = start_graph(args.user,args.pause_after_rerank)
     else:
         with connection() as conn:
             result = {"posts": conn.execute("SELECT count(*) AS n FROM posts").fetchone()["n"],

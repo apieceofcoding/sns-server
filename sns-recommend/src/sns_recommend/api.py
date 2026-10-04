@@ -6,6 +6,7 @@ from .config import settings
 from .feed import read_feed
 from .db import connection
 from .events import Event, accept_event, excluded_ids
+from .jobs import enqueue
 
 app = FastAPI(title="SNS Recommend", version="0.1.0")
 
@@ -25,7 +26,14 @@ def feed(user_id: int, limit: int = Query(20, ge=1, le=50), cursor: str | None =
     try:
         with connection() as conn:
             excluded = excluded_ids(conn, user_id)
-        return read_feed(user_id, limit, cursor, excluded)
+        result = read_feed(user_id, limit, cursor, excluded)
+        with connection() as conn:
+            user = conn.execute("UPDATE users SET active_at=now() WHERE id=%s RETURNING id",(user_id,)).fetchone()
+            if not user:
+                raise HTTPException(404,"unknown user")
+            if not result["ready"] or result.get("stale") or not result["next_cursor"]:
+                result["refresh_job"] = enqueue(conn,"build",user_id=user_id)
+        return result
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     except LookupError as exc:

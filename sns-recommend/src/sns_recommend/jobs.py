@@ -32,13 +32,13 @@ def enqueue(conn, kind, user_id=None, post_id=None, payload=None):
     return str(job_id)
 
 
-def claim(kinds=("index", "profile", "build")):
+def claim(kinds=("index", "profile", "build"), job_id=None):
     owner = uuid4()
     with connection() as conn:
-        row = conn.execute("""SELECT * FROM jobs WHERE kind=ANY(%s) AND
+        row = conn.execute("""SELECT * FROM jobs WHERE kind=ANY(%s) AND (%s::uuid IS NULL OR id=%s::uuid) AND
             ((status='pending' AND available_at<=now()) OR
              (status='running' AND lease_until<now()))
-            ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1""", (list(kinds),)).fetchone()
+            ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1""", (list(kinds),job_id,job_id)).fetchone()
         if not row:
             return None
         conn.execute("""UPDATE jobs SET status='running', owner=%s,
@@ -55,3 +55,11 @@ def finish(job, status="done", error=None):
         conn.execute("""UPDATE jobs SET status=%s,error=%s,lease_until=NULL
             WHERE id=%s AND owner=%s AND status='running'""",
                      (status, error, job["id"], job["owner"]))
+
+
+def retry(job, error):
+    status = "failed" if job["attempts"]>=3 else "running"
+    with connection() as conn:
+        conn.execute("""UPDATE jobs SET status=%s,error=%s,lease_until=now()+interval '10 seconds'
+            WHERE id=%s AND owner=%s AND status='running'""",
+                     (status,error,job["id"],job["owner"]))

@@ -1,10 +1,10 @@
 import argparse
 import json
 import time
-from .jobs import claim, finish
+from .jobs import claim, finish, retry
 from .indexing import index_posts
 from .retrieval import process_profile
-from .ranking import generate
+from .graph import run_graph
 
 
 def run_one():
@@ -15,12 +15,13 @@ def run_one():
         if job["kind"] == "index":
             index_posts([job["post_id"]])
         elif job["kind"] == "build":
-            generate(job["user_id"],job["generation"],str(job["id"]),job["created_at"].timestamp())
+            run_graph(job)
+            return True
         else:
             process_profile(job["user_id"])
         finish(job)
     except Exception as exc:
-        finish(job, "failed", type(exc).__name__)
+        retry(job, type(exc).__name__)
     return True
 
 
