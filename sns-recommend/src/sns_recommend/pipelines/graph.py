@@ -5,12 +5,14 @@ from typing import TypedDict
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.graph import END, START, StateGraph
 
-from .config import settings
-from .db import connection
-from .feed import publish
-from .jobs import claim, enqueue, finish
-from .measurement import record_generation
-from .ranking import diversify, prepare_inputs, rerank_candidates, validate_ranking
+from sns_recommend.core.config import settings
+from sns_recommend.core.measurement import record_generation
+from sns_recommend.pipelines.generation import prepare_inputs
+from sns_recommend.providers.rerank import rerank_candidates
+from sns_recommend.recommenders.ranking import diversify, validate_ranking
+from sns_recommend.storage.feeds import publish
+from sns_recommend.storage.jobs import claim, enqueue, finish
+from sns_recommend.storage.postgres import connection
 
 GRAPH_VERSION = "sns-feed-v1"
 

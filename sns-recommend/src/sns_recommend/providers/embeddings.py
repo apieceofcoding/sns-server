@@ -6,9 +6,9 @@ from pathlib import Path
 from langchain_core.embeddings import Embeddings
 from psycopg.types.json import Jsonb
 
-from .config import settings
-from .db import connection
-from .measurement import measured_call
+from sns_recommend.core.config import settings
+from sns_recommend.core.measurement import measured_call
+from sns_recommend.storage.postgres import connection
 
 KEYWORDS = [
     ["python", "fastapi", "postgresql", "백엔드", "데이터베이스"],

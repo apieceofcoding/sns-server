@@ -1,6 +1,6 @@
-from .db import connection
-from .feed import publish
-from .jobs import allocate_generation
+from sns_recommend.storage.feeds import publish
+from sns_recommend.storage.jobs import allocate_generation
+from sns_recommend.storage.postgres import connection
 
 
 def baseline(user_id, strategy="latest"):

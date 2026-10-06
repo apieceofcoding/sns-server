@@ -1,17 +1,17 @@
 import argparse
 import json
 
-from .baseline import baseline
-from .benchmark import benchmark
-from .db import connection, initialize
-from .evaluation import evaluate
-from .graph import start_graph
-from .indexing import index_posts
-from .ranking import generate
-from .retrieval import generate_embedding
-from .scheduling import schedule_active
-from .seed import seed
-from .source_demo import change_post, relay
+from sns_recommend.data.indexing import index_posts
+from sns_recommend.data.seed import seed
+from sns_recommend.data.source_demo import change_post, relay
+from sns_recommend.evaluation.benchmark import benchmark
+from sns_recommend.evaluation.offline import evaluate
+from sns_recommend.pipelines.generation import generate
+from sns_recommend.pipelines.graph import start_graph
+from sns_recommend.recommenders.baseline import baseline
+from sns_recommend.recommenders.retrieval import generate_embedding
+from sns_recommend.storage.postgres import connection, initialize
+from sns_recommend.worker.scheduler import schedule_active
 
 
 def main():

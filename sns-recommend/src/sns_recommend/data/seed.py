@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from .db import connection
+from sns_recommend.storage.postgres import connection
 
 TOPICS = {
     "backend": "Python FastAPI PostgreSQL 백엔드 설계와 데이터베이스 실습",

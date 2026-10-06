@@ -2,8 +2,8 @@ from datetime import UTC, datetime
 from time import perf_counter
 from uuid import uuid4
 
-from .config import settings
-from .db import connection
+from sns_recommend.core.config import settings
+from sns_recommend.storage.postgres import connection
 
 
 class CallLimitExceeded(RuntimeError):

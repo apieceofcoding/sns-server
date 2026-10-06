@@ -1,31 +1,16 @@
-import secrets
-from typing import Annotated
-
 import psycopg
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from redis.exceptions import RedisError
 
-from .config import settings
-from .db import connection
-from .events import Event, accept_event, excluded_ids
-from .feed import read_feed
-from .jobs import enqueue
-from .measurement import metrics
+from sns_recommend.data.events import excluded_ids
+from sns_recommend.storage.feeds import read_feed
+from sns_recommend.storage.jobs import enqueue
+from sns_recommend.storage.postgres import connection
 
-app = FastAPI(title="SNS Recommend", version="0.1.0")
+router = APIRouter(prefix="/feeds", tags=["feeds"])
 
 
-def authenticate(x_internal_token: Annotated[str, Header()] = ""):
-    if not secrets.compare_digest(x_internal_token, settings().internal_token):
-        raise HTTPException(401, "invalid internal token")
-
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-
-@app.get("/internal/feeds/{user_id}", dependencies=[Depends(authenticate)])
+@router.get("/{user_id}")
 def feed(user_id: int, limit: int = Query(20, ge=1, le=50), cursor: str | None = None):
     try:
         with connection() as conn:
@@ -46,16 +31,3 @@ def feed(user_id: int, limit: int = Query(20, ge=1, le=50), cursor: str | None =
         raise HTTPException(410, str(exc)) from exc
     except (RedisError, psycopg.Error) as exc:
         raise HTTPException(503, "feed unavailable; SNS should serve latest") from exc
-
-
-@app.post("/internal/events", dependencies=[Depends(authenticate)])
-def events(event: Event):
-    try:
-        return accept_event(event)
-    except LookupError as exc:
-        raise HTTPException(404, str(exc)) from exc
-
-
-@app.get("/internal/metrics", dependencies=[Depends(authenticate)])
-def measurements():
-    return metrics()

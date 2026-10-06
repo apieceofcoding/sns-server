@@ -2,6 +2,28 @@
 
 최종 코드는 `part-9-resilience`입니다. Python API는 저장된 목록을 읽고, LangGraph worker는 외부 모델을 호출해 목록을 미리 만들어요.
 
+## Python 패키지
+
+`src/sns_recommend/` 아래를 역할별로 나눕니다. HTTP 라우터, 외부 모델 호출과 추천 규칙을 따로 읽을 수 있어요.
+
+| 패키지 | 책임 |
+|---|---|
+| `api/` | FastAPI 앱, 내부 인증과 기능별 라우터 |
+| `core/` | 설정, 리소스 경로와 호출 비용 기록 |
+| `data/` | 이벤트 반영, 게시글 색인과 합성 데이터 준비 |
+| `providers/` | 임베딩과 재정렬 API, fixture와 응답 재생 |
+| `recommenders/` | 기본 추천, 후보 검색과 순위 검증, 다양성 규칙 |
+| `pipelines/` | 함수 기반 생성과 LangGraph 실행, 복구와 발행 |
+| `storage/` | PostgreSQL 연결, Redis 피드와 작업 저장 |
+| `worker/` | 작업 실행 루프와 활성 사용자 갱신 예약 |
+| `evaluation/` | 품질 지표, 오프라인 비교와 조회 측정 |
+
+조회는 `api → data/storage`, 추천 생성은 `worker → pipelines → recommenders/providers`로 이어집니다. `recommenders/ranking.py`의 순위 검증과 다양성 규칙은 DB와 모델 API 없이 실행해요. `cli.py`는 실습 명령의 진입점입니다.
+
+Python의 [src 레이아웃](https://packaging.python.org/en/latest/discussions/src-layout-vs-flat-layout/)과 FastAPI의 [APIRouter 분리](https://fastapi.tiangolo.com/tutorial/bigger-applications/)를 따릅니다. 이 원칙을 우리 서비스의 추천, 모델 호출과 실행 흐름에 맞춰 적용했어요.
+
+패키지 분리는 최종 브랜치에 적용했습니다. 1~8장 브랜치는 이전 파일 배치로 단계별 구현을 보여줍니다. `uvicorn sns_recommend.api:app`, `python -m sns_recommend.worker`와 `sns-rec` 명령은 동일해요.
+
 ## 처음 실행
 
 ```sh
@@ -20,6 +42,8 @@ curl -H 'X-Internal-Token: course-local-token' http://localhost:8001/internal/fe
 ```
 
 localhost의 8001은 추천 API, 55432는 추천 DB, 56379는 추천 Redis입니다. 기존 SNS와 별도 포트로 실행해요. `.env.example`을 `.env`로 복사해 설정을 바꿀 수 있습니다.
+
+SQL과 고정 평가 데이터는 wheel에도 포함됩니다. 설치된 패키지에서는 `importlib.resources`로 읽고, 개발 환경에서는 저장소의 `sql/`과 `data/`를 사용해요.
 
 ## 모델 모드
 

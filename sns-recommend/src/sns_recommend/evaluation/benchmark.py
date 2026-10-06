@@ -3,9 +3,9 @@ from pathlib import Path
 from statistics import mean
 from time import perf_counter
 
-from .config import settings
-from .feed import read_feed
-from .measurement import metrics
+from sns_recommend.core.config import settings
+from sns_recommend.core.measurement import metrics
+from sns_recommend.storage.feeds import read_feed
 
 
 def benchmark(user_id=1, requests=100):

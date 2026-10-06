@@ -5,9 +5,9 @@ from uuid import uuid4
 import httpx
 from psycopg.types.json import Jsonb
 
-from .config import settings
-from .db import connection
-from .events import Event
+from sns_recommend.core.config import settings
+from sns_recommend.data.events import Event
+from sns_recommend.storage.postgres import connection
 
 
 def change_post(post_id, body):

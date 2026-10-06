@@ -3,11 +3,11 @@ from datetime import UTC, datetime, timedelta
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
 
-from .db import connection
-from .embeddings import CachedEmbeddings, normalize, space, vector_sql
-from .events import excluded_ids
-from .feed import publish
-from .jobs import allocate_generation, enqueue
+from sns_recommend.data.events import excluded_ids
+from sns_recommend.providers.embeddings import CachedEmbeddings, normalize, space, vector_sql
+from sns_recommend.storage.feeds import publish
+from sns_recommend.storage.jobs import allocate_generation, enqueue
+from sns_recommend.storage.postgres import connection
 
 
 def update_profile(user_id):

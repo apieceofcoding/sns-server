@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from redis import Redis
 
-from .config import settings
+from sns_recommend.core.config import settings
 
 PUBLISH = """
 local existing = redis.call('GET', KEYS[1])

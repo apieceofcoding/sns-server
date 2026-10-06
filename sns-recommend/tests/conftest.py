@@ -6,10 +6,10 @@ import pytest
 from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
-from sns_recommend.config import settings
-from sns_recommend.db import initialize
-from sns_recommend.feed import redis_client
-from sns_recommend.seed import seed
+from sns_recommend.core.config import settings
+from sns_recommend.data.seed import seed
+from sns_recommend.storage.feeds import redis_client
+from sns_recommend.storage.postgres import initialize
 
 
 @pytest.fixture

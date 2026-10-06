@@ -1,4 +1,4 @@
-from sns_recommend.embeddings import FixtureEmbeddings, normalize
+from sns_recommend.providers.embeddings import FixtureEmbeddings, normalize
 
 
 def test_synthetic_vectors_preserve_topic_and_shape():

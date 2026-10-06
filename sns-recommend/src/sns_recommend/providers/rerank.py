@@ -6,12 +6,8 @@ from typing import Annotated
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field, StrictInt
 
-from .config import settings
-from .db import connection
-from .feed import publish
-from .jobs import allocate_generation
-from .measurement import measured_call
-from .retrieval import retrieve_candidates, update_profile
+from sns_recommend.core.config import settings
+from sns_recommend.core.measurement import measured_call
 
 PROMPT_VERSION = "sns-rank-v1"
 PROMPT = ChatPromptTemplate.from_messages(
@@ -29,31 +25,6 @@ PROMPT = ChatPromptTemplate.from_messages(
 
 class Ranking(BaseModel):
     ordered_ids: Annotated[list[StrictInt], Field(max_length=50)]
-
-
-def prepare_inputs(user_id):
-    update_profile(user_id)
-    candidates = retrieve_candidates(user_id)
-    with connection() as conn:
-        user = conn.execute(
-            "SELECT interests,version FROM users WHERE id=%s", (user_id,)
-        ).fetchone()
-        history = conn.execute(
-            """SELECT kind,post_id FROM events WHERE user_id=%s
-            AND occurred_at<=now() AND kind IN ('click','like','not_interested')
-            ORDER BY occurred_at DESC LIMIT 10""",
-            (user_id,),
-        ).fetchall()
-    return {
-        "user_id": user_id,
-        "interests": user["interests"],
-        "user_version": user["version"],
-        "history": history,
-        "candidates": candidates,
-        "prompt_version": PROMPT_VERSION,
-        "model": settings().rerank_model,
-        "mode": settings().model_mode,
-    }
 
 
 def rerank_candidates(inputs):
@@ -118,62 +89,3 @@ def rerank_candidates(inputs):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({"input": encoded, "result": result}, ensure_ascii=False))
     return result
-
-
-def validate_ranking(candidates, ids):
-    expected = [p["id"] for p in candidates]
-    if (
-        any(type(i) is not int for i in ids)
-        or len(ids) != len(expected)
-        or set(ids) != set(expected)
-    ):
-        raise ValueError("ranking must be a permutation of allowed candidate IDs")
-    return ids
-
-
-def diversify(candidates, ids):
-    lookup = {p["id"]: p for p in candidates}
-    remaining, result = list(ids), []
-    while remaining:
-        previous = lookup[result[-1]] if result else None
-        next_id = next(
-            (
-                i
-                for i in remaining
-                if previous is None
-                or (
-                    lookup[i]["author_id"] != previous["author_id"]
-                    and lookup[i]["topic"] != previous["topic"]
-                )
-            ),
-            None,
-        )
-        if next_id is None:
-            next_id = next(
-                (
-                    i
-                    for i in remaining
-                    if previous is None or lookup[i]["author_id"] != previous["author_id"]
-                ),
-                remaining[0],
-            )
-        result.append(next_id)
-        remaining.remove(next_id)
-    return result
-
-
-def generate(user_id, generation=None, snapshot_id=None, created_at=None):
-    inputs = prepare_inputs(user_id)
-    candidates = inputs["candidates"]
-    strategy = "fixture_llm" if settings().model_mode == "fixture" else "llm"
-    try:
-        response = rerank_candidates(inputs)
-        ordered = validate_ranking(candidates, response["ordered_ids"])
-    except Exception:
-        ordered, strategy = [p["id"] for p in candidates], "rules_fallback"
-    ids = diversify(candidates, ordered)
-    if generation is None:
-        with connection() as conn:
-            generation = allocate_generation(conn, user_id)
-    published = publish(user_id, ids, strategy, generation, snapshot_id, created_at)
-    return {"strategy": strategy, "post_ids": ids, "published": published}

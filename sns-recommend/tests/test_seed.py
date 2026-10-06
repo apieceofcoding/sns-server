@@ -1,4 +1,4 @@
-from sns_recommend.seed import TOPICS
+from sns_recommend.data.seed import TOPICS
 
 
 def test_course_topics_have_content():

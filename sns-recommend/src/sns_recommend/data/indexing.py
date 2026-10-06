@@ -1,8 +1,8 @@
 from langchain_core.documents import Document
 
-from .config import settings
-from .db import connection
-from .embeddings import CachedEmbeddings, space, vector_sql
+from sns_recommend.core.config import settings
+from sns_recommend.providers.embeddings import CachedEmbeddings, space, vector_sql
+from sns_recommend.storage.postgres import connection
 
 
 def index_posts(post_ids=None):

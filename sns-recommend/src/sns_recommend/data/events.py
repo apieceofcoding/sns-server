@@ -5,8 +5,8 @@ from uuid import UUID
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field, model_validator
 
-from .db import connection
-from .jobs import enqueue
+from sns_recommend.storage.jobs import enqueue
+from sns_recommend.storage.postgres import connection
 
 
 class Event(BaseModel):

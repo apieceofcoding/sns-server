@@ -1,4 +1,5 @@
-from sns_recommend.evaluation import evaluate, ndcg_at_k, recall_at_k
+from sns_recommend.evaluation.metrics import ndcg_at_k, recall_at_k
+from sns_recommend.evaluation.offline import evaluate
 
 
 def test_metrics_handle_missing_relevant_posts_and_order():

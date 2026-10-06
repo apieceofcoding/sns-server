@@ -2,11 +2,11 @@ import argparse
 import json
 import time
 
-from .graph import run_graph
-from .indexing import index_posts
-from .jobs import claim, finish, retry
-from .retrieval import process_profile
-from .scheduling import schedule_active
+from sns_recommend.data.indexing import index_posts
+from sns_recommend.pipelines.graph import run_graph
+from sns_recommend.recommenders.retrieval import process_profile
+from sns_recommend.storage.jobs import claim, finish, retry
+from sns_recommend.worker.scheduler import schedule_active
 
 
 def run_one():

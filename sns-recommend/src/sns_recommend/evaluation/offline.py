@@ -1,28 +1,20 @@
 import json
-import math
 from datetime import datetime
 from pathlib import Path
 
-from .config import settings
-from .embeddings import CachedEmbeddings, FixtureEmbeddings, normalize
-from .ranking import PROMPT_VERSION, diversify, rerank_candidates, validate_ranking
+from sns_recommend.core.config import settings
+from sns_recommend.core.resources import resource_directory
+from sns_recommend.evaluation.metrics import ndcg_at_k, recall_at_k
+from sns_recommend.providers.embeddings import CachedEmbeddings, FixtureEmbeddings, normalize
+from sns_recommend.providers.rerank import PROMPT_VERSION, rerank_candidates
+from sns_recommend.recommenders.ranking import diversify, validate_ranking
 
 
-def recall_at_k(ids, labels, k):
-    relevant = {int(i) for i, v in labels.items() if v > 0}
-    return len(set(ids[:k]) & relevant) / len(relevant) if relevant else 0.0
-
-
-def ndcg_at_k(ids, labels, k):
-    gains = [labels.get(str(i), 0) for i in ids[:k]]
-    dcg = sum((2**v - 1) / math.log2(i + 2) for i, v in enumerate(gains))
-    ideal = sorted(labels.values(), reverse=True)[:k]
-    idcg = sum((2**v - 1) / math.log2(i + 2) for i, v in enumerate(ideal))
-    return dcg / idcg if idcg else 0.0
-
-
-def evaluate(path="data/evaluation.json", k=10):
-    data = json.loads(Path(path).read_text())
+def evaluate(path=None, k=10):
+    source = (
+        Path(path) if path is not None else resource_directory("data").joinpath("evaluation.json")
+    )
+    data = json.loads(source.read_text())
     cutoff = datetime.fromisoformat(data["context_cutoff"])
     observed = datetime.fromisoformat(data["evaluation_time"])
     past = [a for a in data["actions"] if datetime.fromisoformat(a["at"]) <= cutoff]

@@ -4,8 +4,8 @@ from uuid import uuid4
 
 from psycopg.types.json import Jsonb
 
-from .config import settings
-from .db import connection
+from sns_recommend.core.config import settings
+from sns_recommend.storage.postgres import connection
 
 
 def allocate_generation(conn, user_id):

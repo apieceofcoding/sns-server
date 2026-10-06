@@ -3,7 +3,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from sns_recommend.events import Event
+from sns_recommend.data.events import Event
 
 
 def test_post_event_requires_content_contract():

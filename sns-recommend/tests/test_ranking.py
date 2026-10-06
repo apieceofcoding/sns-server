@@ -1,6 +1,6 @@
 import pytest
 
-from sns_recommend.ranking import diversify, validate_ranking
+from sns_recommend.recommenders.ranking import diversify, validate_ranking
 
 CANDIDATES = [
     {"id": 1, "author_id": 1, "topic": "a"},

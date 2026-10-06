@@ -1,6 +1,6 @@
-from .config import settings
-from .db import connection
-from .jobs import enqueue
+from sns_recommend.core.config import settings
+from sns_recommend.storage.jobs import enqueue
+from sns_recommend.storage.postgres import connection
 
 
 def schedule_active():

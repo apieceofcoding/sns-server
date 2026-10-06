@@ -4,14 +4,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from sns_recommend.api import app
-from sns_recommend.db import connection
-from sns_recommend.events import Event, accept_event
-from sns_recommend.feed import publish, read_feed
-from sns_recommend.graph import run_graph, start_graph
-from sns_recommend.indexing import index_posts
-from sns_recommend.jobs import claim, enqueue
-from sns_recommend.measurement import CallLimitExceeded, measured_call
-from sns_recommend.retrieval import retrieve_candidates, update_profile
+from sns_recommend.core.measurement import CallLimitExceeded, measured_call
+from sns_recommend.data.events import Event, accept_event
+from sns_recommend.data.indexing import index_posts
+from sns_recommend.pipelines.graph import run_graph, start_graph
+from sns_recommend.recommenders.retrieval import retrieve_candidates, update_profile
+from sns_recommend.storage.feeds import publish, read_feed
+from sns_recommend.storage.jobs import claim, enqueue
+from sns_recommend.storage.postgres import connection
 
 pytestmark = pytest.mark.integration
 
@@ -38,7 +38,7 @@ def test_event_duplicate_and_old_version_are_not_reapplied(infra):
 
 
 def test_source_outbox_commits_with_post(infra):
-    from sns_recommend.source_demo import change_post
+    from sns_recommend.data.source_demo import change_post
 
     change_post(1001, "Python")
     with connection() as conn:
@@ -71,7 +71,7 @@ def test_old_snapshot_stays_stable_and_publish_is_idempotent(infra):
 
 def test_graph_resumes_without_repeating_saved_rerank(infra, monkeypatch):
     prepare()
-    import sns_recommend.graph as graph_module
+    import sns_recommend.pipelines.graph as graph_module
 
     calls = []
     original = graph_module.rerank_candidates
@@ -93,7 +93,7 @@ def test_graph_resumes_without_repeating_saved_rerank(infra, monkeypatch):
 def test_invalid_rank_uses_rule_branch(infra, monkeypatch):
     prepare()
     monkeypatch.setattr(
-        "sns_recommend.graph.rerank_candidates",
+        "sns_recommend.pipelines.graph.rerank_candidates",
         lambda inputs: {"ordered_ids": [99999], "mode": "fixture"},
     )
     result = start_graph(1)
@@ -118,7 +118,7 @@ def test_read_api_does_not_call_model(infra, monkeypatch):
     def forbidden(*args):
         raise AssertionError("read path called model")
 
-    monkeypatch.setattr("sns_recommend.graph.rerank_candidates", forbidden)
+    monkeypatch.setattr("sns_recommend.pipelines.graph.rerank_candidates", forbidden)
     result = TestClient(app).get(
         "/internal/feeds/1", headers={"X-Internal-Token": "course-local-token"}
     )
@@ -128,7 +128,7 @@ def test_read_api_does_not_call_model(infra, monkeypatch):
 
 def test_budget_is_enforced_before_provider_call(infra, monkeypatch):
     monkeypatch.setenv("DAILY_CALL_LIMIT", "1")
-    from sns_recommend.config import settings
+    from sns_recommend.core.config import settings
 
     settings.cache_clear()
     calls = []
