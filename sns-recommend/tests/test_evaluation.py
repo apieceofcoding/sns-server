@@ -21,6 +21,7 @@ def test_evaluation_separates_context_from_available_candidates(tmp_path, monkey
     )
     path = tmp_path / "eval.json"
     path.write_text(json.dumps(data))
+    monkeypatch.chdir(tmp_path)
     expected = evaluate()
     actual = evaluate(str(path))
     assert actual["rows"] == expected["rows"]

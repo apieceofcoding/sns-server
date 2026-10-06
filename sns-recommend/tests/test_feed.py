@@ -17,3 +17,24 @@ def test_cursor_cannot_move_to_another_user():
 def test_internal_api_requires_token():
     client = TestClient(app)
     assert client.get("/internal/feeds/1").status_code == 401
+
+
+@pytest.mark.parametrize(
+    "cursor", ["!", "a" * 513, cursor_encode(1, "abc", True), cursor_encode(1, "../abc", 0)]
+)
+def test_malformed_cursor_is_rejected(cursor):
+    with pytest.raises(ValueError, match="invalid cursor"):
+        cursor_decode(cursor, 1)
+
+
+def test_cursor_query_is_bounded_before_storage_access(monkeypatch):
+    def forbidden(*args):
+        raise AssertionError("invalid cursor reached storage")
+
+    monkeypatch.setattr("sns_recommend.api.routers.feeds.connection", forbidden)
+    response = TestClient(app).get(
+        "/internal/feeds/1",
+        params={"cursor": "a" * 513},
+        headers={"X-Internal-Token": "course-local-token"},
+    )
+    assert response.status_code == 422

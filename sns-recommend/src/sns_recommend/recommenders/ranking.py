@@ -4,7 +4,8 @@
 def validate_ranking(candidates, ids):
     expected = [p["id"] for p in candidates]
     if (
-        any(type(i) is not int for i in ids)
+        not isinstance(ids, list)
+        or any(type(i) is not int for i in ids)
         or len(ids) != len(expected)
         or set(ids) != set(expected)
     ):

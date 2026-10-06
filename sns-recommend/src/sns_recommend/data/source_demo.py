@@ -43,7 +43,7 @@ def relay(url="http://localhost:8001"):
             url + "/internal/events",
             json=row["event"],
             timeout=5,
-            headers={"X-Internal-Token": settings().internal_token},
+            headers={"X-Internal-Token": settings().internal_token.get_secret_value()},
         )
         response.raise_for_status()
         with connection() as conn:

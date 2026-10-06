@@ -1,6 +1,4 @@
-import hashlib
 import json
-from pathlib import Path
 from typing import Annotated
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -8,6 +6,7 @@ from pydantic import BaseModel, Field, StrictInt
 
 from sns_recommend.core.config import settings
 from sns_recommend.core.measurement import measured_call
+from sns_recommend.providers.recordings import recording_path, write_recording
 
 PROMPT_VERSION = "sns-rank-v1"
 PROMPT = ChatPromptTemplate.from_messages(
@@ -27,6 +26,10 @@ class Ranking(BaseModel):
     ordered_ids: Annotated[list[StrictInt], Field(max_length=50)]
 
 
+def ranking_strategy(mode):
+    return {"fixture": "fixture_llm", "replay": "replay_llm"}.get(mode, "llm")
+
+
 def rerank_candidates(inputs):
     candidates = inputs["candidates"]
     if not candidates:
@@ -44,7 +47,7 @@ def rerank_candidates(inputs):
         sort_keys=True,
         ensure_ascii=False,
     )
-    path = Path(cfg.recordings_dir) / (hashlib.sha256(encoded.encode()).hexdigest() + "-rank.json")
+    path = recording_path("rank", encoded)
     if cfg.model_mode == "fixture":
         # Synthetic ordering only. Never present this as a Gemini recording.
         return {
@@ -86,6 +89,5 @@ def rerank_candidates(inputs):
         "usage": response["raw"].usage_metadata or {},
     }
     if cfg.model_mode == "record":
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"input": encoded, "result": result}, ensure_ascii=False))
+        write_recording(path, {"input": encoded, "result": result})
     return result

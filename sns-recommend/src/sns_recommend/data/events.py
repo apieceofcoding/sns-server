@@ -3,13 +3,26 @@ from typing import Literal
 from uuid import UUID
 
 from psycopg.types.json import Jsonb
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 from sns_recommend.storage.jobs import enqueue
 from sns_recommend.storage.postgres import connection
 
 
+class PostContent(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    body: str = Field(min_length=1, max_length=10_000, strict=True)
+    author_id: int = Field(gt=0, le=2**63 - 1, strict=True)
+    topic: str = Field(min_length=1, max_length=100, strict=True)
+
+
+class ProfileContent(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    interests: str = Field(min_length=1, max_length=1_000, strict=True)
+
+
 class Event(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     event_id: UUID
     kind: Literal[
         "post.updated",
@@ -20,10 +33,10 @@ class Event(BaseModel):
         "not_interested",
         "profile.updated",
     ]
-    occurred_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    user_id: int | None = Field(default=None, gt=0)
-    post_id: int | None = Field(default=None, gt=0)
-    version: int = Field(default=1, ge=1)
+    occurred_at: AwareDatetime = Field(default_factory=lambda: datetime.now(UTC))
+    user_id: int | None = Field(default=None, gt=0, le=2**63 - 1, strict=True)
+    post_id: int | None = Field(default=None, gt=0, le=2**63 - 1, strict=True)
+    version: int = Field(default=1, ge=1, le=2**63 - 1, strict=True)
     payload: dict = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -31,17 +44,16 @@ class Event(BaseModel):
         if self.kind.startswith("post."):
             if self.post_id is None:
                 raise ValueError("post_id required")
-            if (
-                self.kind == "post.updated"
-                and not {"body", "author_id", "topic"} <= self.payload.keys()
-            ):
-                raise ValueError("body, author_id and topic required")
         elif self.user_id is None:
             raise ValueError("user_id required")
         if self.kind in {"impression", "click", "like", "not_interested"} and self.post_id is None:
             raise ValueError("post_id required")
-        if self.kind == "profile.updated" and not self.payload.get("interests"):
-            raise ValueError("interests required")
+        if self.kind == "post.updated":
+            self.payload = PostContent.model_validate(self.payload).model_dump()
+        elif self.kind == "profile.updated":
+            self.payload = ProfileContent.model_validate(self.payload).model_dump()
+        elif self.payload:
+            raise ValueError("payload must be empty for this event kind")
         return self
 
 

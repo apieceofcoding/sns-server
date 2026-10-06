@@ -1,5 +1,5 @@
 from sns_recommend.core.config import settings
-from sns_recommend.providers.rerank import PROMPT_VERSION, rerank_candidates
+from sns_recommend.providers.rerank import PROMPT_VERSION, ranking_strategy, rerank_candidates
 from sns_recommend.recommenders.ranking import diversify, validate_ranking
 from sns_recommend.recommenders.retrieval import retrieve_candidates, update_profile
 from sns_recommend.storage.feeds import publish
@@ -32,18 +32,21 @@ def prepare_inputs(user_id):
     }
 
 
-def generate(user_id, generation=None, snapshot_id=None, created_at=None):
+def generate(user_id):
+    with connection() as conn:
+        generation = allocate_generation(conn, user_id)
     inputs = prepare_inputs(user_id)
     candidates = inputs["candidates"]
-    strategy = "fixture_llm" if settings().model_mode == "fixture" else "llm"
     try:
         response = rerank_candidates(inputs)
-        ordered = validate_ranking(candidates, response["ordered_ids"])
+        ordered = validate_ranking(candidates, response.get("ordered_ids"))
+        strategy = ranking_strategy(response["mode"])
     except Exception:
         ordered, strategy = [p["id"] for p in candidates], "rules_fallback"
     ids = diversify(candidates, ordered)
-    if generation is None:
-        with connection() as conn:
-            generation = allocate_generation(conn, user_id)
-    published = publish(user_id, ids, strategy, generation, snapshot_id, created_at)
+    with connection() as conn:
+        user = conn.execute(
+            "SELECT generation FROM users WHERE id=%s FOR UPDATE", (user_id,)
+        ).fetchone()
+        published = user["generation"] == generation and publish(user_id, ids, strategy, generation)
     return {"strategy": strategy, "post_ids": ids, "published": published}

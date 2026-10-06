@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime, timedelta
 
 from langchain_core.documents import Document
@@ -16,16 +17,14 @@ def update_profile(user_id):
         if not user:
             raise LookupError("unknown user")
         positives = conn.execute(
-            """SELECT DISTINCT p.id,p.embedding::text FROM events e
+            """SELECT p.id,p.embedding::text FROM events e
             JOIN posts p ON p.id=e.post_id WHERE e.user_id=%s AND e.kind IN ('like','click')
             AND e.occurred_at<=now() AND e.occurred_at>now()-interval '7 days'
             AND NOT p.deleted AND p.embedding_space=%s AND p.embedding_version=p.version
-            ORDER BY p.id DESC LIMIT 5""",
+            GROUP BY p.id ORDER BY max(e.occurred_at) DESC,p.id DESC LIMIT 5""",
             (user_id, space()),
         ).fetchall()
     # Cached initial text vector, plus stored post vectors. No model call per event.
-    import json
-
     base = CachedEmbeddings().embed_query(user["interests"])
     vectors = [json.loads(p["embedding"]) for p in positives]
     mixed = (
@@ -48,22 +47,35 @@ def update_profile(user_id):
 
 
 def retrieve_candidates(user_id, k=30, as_of=None):
+    if not 1 <= k <= 50:
+        raise ValueError("candidate count must be between 1 and 50")
     reference = as_of or datetime.now(UTC)
     with connection() as conn:
         user = conn.execute("SELECT * FROM users WHERE id=%s", (user_id,)).fetchone()
         if not user:
             raise LookupError("unknown user")
+        valid = (
+            user["embedding"] is not None
+            and user["embedding_space"] == space()
+            and user["embedding_version"] == user["version"]
+        )
         excluded = excluded_ids(conn, user_id)
         rows = conn.execute(
             """SELECT id,author_id,body,topic,version,created_at,likes,
-            CASE WHEN embedding_space=%s AND embedding_version=version
+            CASE WHEN %s AND embedding_space=%s AND embedding_version=version
             THEN 1-(embedding <=> %s::vector) ELSE NULL END AS similarity
             FROM posts WHERE NOT deleted AND author_id<>%s
             AND created_at<=%s AND created_at>=%s""",
-            (space(), user["embedding"], user_id, reference, reference - timedelta(hours=48)),
+            (
+                valid,
+                space(),
+                user["embedding"],
+                user_id,
+                reference,
+                reference - timedelta(hours=48),
+            ),
         ).fetchall()
     rows = [r for r in rows if r["id"] not in excluded]
-    valid = user["embedding_space"] == space() and user["embedding_version"] == user["version"]
     semantic = sorted(
         [r for r in rows if valid and r["similarity"] is not None],
         key=lambda r: (r["similarity"], r["id"]),
@@ -77,11 +89,25 @@ def retrieve_candidates(user_id, k=30, as_of=None):
             if row["id"] not in merged:
                 merged[row["id"]] = {**row, "sources": []}
             merged[row["id"]]["sources"].append(source)
+    # Keep fresh and popular candidates even when semantic search already fills k.
+    supplement = min(5, k // 3)
+    selected = {}
+    for group in (
+        semantic[: k - 2 * supplement],
+        latest[:supplement],
+        popular[:supplement],
+        semantic,
+        latest,
+        popular,
+    ):
+        for row in group:
+            if len(selected) < k:
+                selected[row["id"]] = merged[row["id"]]
     ranked = sorted(
-        merged.values(),
+        selected.values(),
         key=lambda r: (r["similarity"] or 0, r["created_at"], r["id"]),
         reverse=True,
-    )[:k]
+    )
     return [{**r, "created_at": r["created_at"].isoformat()} for r in ranked]
 
 
@@ -97,13 +123,17 @@ class PostRetriever(BaseRetriever):
 
 
 def generate_embedding(user_id):
-    update_profile(user_id)
-    docs = PostRetriever(user_id=user_id).invoke("stored user interests")
     with connection() as conn:
         generation = allocate_generation(conn, user_id)
+    update_profile(user_id)
+    docs = PostRetriever(user_id=user_id).invoke("stored user interests")
     ids = [d.metadata["id"] for d in docs]
-    publish(user_id, ids, "embedding", generation)
-    return {"strategy": "embedding", "post_ids": ids}
+    with connection() as conn:
+        user = conn.execute(
+            "SELECT generation FROM users WHERE id=%s FOR UPDATE", (user_id,)
+        ).fetchone()
+        published = user["generation"] == generation and publish(user_id, ids, "embedding", generation)
+    return {"strategy": "embedding", "post_ids": ids, "published": published}
 
 
 def process_profile(user_id):

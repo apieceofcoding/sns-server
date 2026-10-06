@@ -17,7 +17,7 @@ def index_posts(post_ids=None):
                 (space(),),
             ).fetchall()
     active = [p for p in posts if not p["deleted"]]
-    if settings().model_mode in {"live", "record"}:
+    if settings().model_mode != "fixture":
         active = active[:20]  # Call again for the next small batch.
     documents = [
         Document(page_content=p["body"], metadata={"id": p["id"], "version": p["version"]})

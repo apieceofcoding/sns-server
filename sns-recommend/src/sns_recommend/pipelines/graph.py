@@ -8,7 +8,7 @@ from langgraph.graph import END, START, StateGraph
 from sns_recommend.core.config import settings
 from sns_recommend.core.measurement import record_generation
 from sns_recommend.pipelines.generation import prepare_inputs
-from sns_recommend.providers.rerank import rerank_candidates
+from sns_recommend.providers.rerank import ranking_strategy, rerank_candidates
 from sns_recommend.recommenders.ranking import diversify, validate_ranking
 from sns_recommend.storage.feeds import publish
 from sns_recommend.storage.jobs import claim, enqueue, finish
@@ -60,7 +60,7 @@ def make_graph(checkpointer, pause=False):
         guard(state)
         try:
             result = rerank_candidates(state["inputs"])
-            strategy = {"fixture": "fixture_llm", "replay": "replay_llm"}.get(result["mode"], "llm")
+            strategy = ranking_strategy(result["mode"])
             answer = {"response": result, "strategy": strategy, "error": ""}
         except Exception as exc:
             answer = {"response": {"ordered_ids": []}, "error": type(exc).__name__}
@@ -70,7 +70,9 @@ def make_graph(checkpointer, pause=False):
     def validate(state):
         guard(state)
         try:
-            ids = validate_ranking(state["inputs"]["candidates"], state["response"]["ordered_ids"])
+            ids = validate_ranking(
+                state["inputs"]["candidates"], state["response"].get("ordered_ids")
+            )
             return {"ordered": ids, "valid": not bool(state.get("error"))}
         except ValueError:
             return {"valid": False, "error": "InvalidRanking"}
@@ -136,6 +138,8 @@ def make_graph(checkpointer, pause=False):
 
 def run_graph(job, pause=False):
     started = perf_counter()
+    # Check ownership before changing the checkpoint's owner or saved state.
+    guard({"job_id": str(job["id"]), "owner": str(job["owner"])})
     with PostgresSaver.from_conn_string(settings().database_url) as saver:
         saver.setup()
         graph = make_graph(saver, pause)
@@ -163,7 +167,8 @@ def run_graph(job, pause=False):
         if graph.get_state(config).next:
             with connection() as conn:
                 conn.execute(
-                    "UPDATE jobs SET lease_until=now() WHERE id=%s AND owner=%s",
+                    """UPDATE jobs SET lease_until=now() WHERE id=%s AND owner=%s
+                    AND status='running'""",
                     (job["id"], job["owner"]),
                 )
             return {"paused": True, "job_id": str(job["id"]), "next": "validate"}

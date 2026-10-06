@@ -1,9 +1,9 @@
 import psycopg
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Path, Query
 from redis.exceptions import RedisError
 
 from sns_recommend.data.events import excluded_ids
-from sns_recommend.storage.feeds import read_feed
+from sns_recommend.storage.feeds import MAX_CURSOR_LENGTH, read_feed
 from sns_recommend.storage.jobs import enqueue
 from sns_recommend.storage.postgres import connection
 
@@ -11,7 +11,11 @@ router = APIRouter(prefix="/feeds", tags=["feeds"])
 
 
 @router.get("/{user_id}")
-def feed(user_id: int, limit: int = Query(20, ge=1, le=50), cursor: str | None = None):
+def feed(
+    user_id: int = Path(gt=0, le=2**63 - 1),
+    limit: int = Query(20, ge=1, le=50),
+    cursor: str | None = Query(None, max_length=MAX_CURSOR_LENGTH),
+):
     try:
         with connection() as conn:
             excluded = excluded_ids(conn, user_id)

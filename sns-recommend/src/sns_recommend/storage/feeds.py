@@ -1,6 +1,8 @@
 import base64
+import binascii
 import hmac
 import json
+import re
 import time
 from uuid import uuid4
 
@@ -8,6 +10,7 @@ from redis import Redis
 
 from sns_recommend.core.config import settings
 
+MAX_CURSOR_LENGTH = 512
 PUBLISH = """
 local existing = redis.call('GET', KEYS[1])
 if existing and existing ~= ARGV[1] then return -1 end
@@ -61,22 +64,31 @@ def publish(user_id, ids, strategy, generation, snapshot_id=None, created_at=Non
 
 def cursor_encode(user_id, snapshot_id, offset):
     raw = json.dumps([user_id, snapshot_id, offset], separators=(",", ":")).encode()
-    signature = hmac.digest(settings().internal_token.encode(), raw, "sha256")
+    signature = hmac.digest(settings().internal_token.get_secret_value().encode(), raw, "sha256")
     return base64.urlsafe_b64encode(raw + signature).decode()
 
 
 def cursor_decode(cursor, user_id):
     try:
-        blob = base64.urlsafe_b64decode(cursor)
+        if len(cursor) > MAX_CURSOR_LENGTH:
+            raise ValueError()
+        blob = base64.b64decode(cursor, altchars=b"-_", validate=True)
         raw, sig = blob[:-32], blob[-32:]
-        expected = hmac.digest(settings().internal_token.encode(), raw, "sha256")
+        expected = hmac.digest(settings().internal_token.get_secret_value().encode(), raw, "sha256")
         if not hmac.compare_digest(sig, expected):
             raise ValueError()
         owner, snapshot, offset = json.loads(raw)
-        if owner != user_id or not isinstance(offset, int) or offset < 0:
+        if (
+            type(owner) is not int
+            or owner != user_id
+            or not isinstance(snapshot, str)
+            or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", snapshot)
+            or type(offset) is not int
+            or not 0 <= offset <= 2**63 - 1
+        ):
             raise ValueError()
         return snapshot, offset
-    except Exception as exc:
+    except (ValueError, TypeError, binascii.Error) as exc:
         raise ValueError("invalid cursor") from exc
 
 

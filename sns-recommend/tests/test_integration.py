@@ -1,16 +1,27 @@
+import json
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from langgraph.checkpoint.postgres import PostgresSaver
 
 from sns_recommend.api import app
+from sns_recommend.core.config import settings
 from sns_recommend.core.measurement import CallLimitExceeded, measured_call
 from sns_recommend.data.events import Event, accept_event
 from sns_recommend.data.indexing import index_posts
-from sns_recommend.pipelines.graph import run_graph, start_graph
+from sns_recommend.pipelines.graph import make_graph, run_graph, start_graph
+from sns_recommend.providers.embeddings import (
+    CachedEmbeddings,
+    FixtureEmbeddings,
+    normalize,
+    space,
+    vector_sql,
+)
 from sns_recommend.recommenders.retrieval import retrieve_candidates, update_profile
 from sns_recommend.storage.feeds import publish, read_feed
-from sns_recommend.storage.jobs import claim, enqueue
+from sns_recommend.storage.jobs import claim, enqueue, finish, retry
 from sns_recommend.storage.postgres import connection
 
 pytestmark = pytest.mark.integration
@@ -147,3 +158,156 @@ def test_lease_ownership_blocks_late_worker(infra):
         conn.execute("UPDATE jobs SET owner=%s WHERE id=%s", (uuid4(), job_id))
     with pytest.raises(RuntimeError, match="lease lost"):
         run_graph(old)
+
+
+def test_lost_owner_cannot_change_saved_checkpoint(infra):
+    prepare()
+    with connection() as conn:
+        job_id = enqueue(conn, "build", user_id=1)
+    old = claim(("build",), job_id=job_id)
+    assert run_graph(old, pause=True)["paused"]
+    current = claim(("build",), job_id=job_id)
+    config = {"configurable": {"thread_id": job_id}}
+    with PostgresSaver.from_conn_string(settings().database_url) as saver:
+        graph = make_graph(saver)
+        before = graph.get_state(config)
+        with pytest.raises(RuntimeError, match="lease lost"):
+            run_graph(old)
+        after = graph.get_state(config)
+        assert before.config == after.config
+        assert before.values == after.values
+    assert run_graph(current)["published"]
+
+
+def test_crashed_jobs_stop_after_retry_limit(infra):
+    with connection() as conn:
+        job_id = enqueue(conn, "index", post_id=1)
+    for attempt in range(1, 4):
+        assert claim(("index",), job_id=job_id)["attempts"] == attempt
+        with connection() as conn:
+            conn.execute(
+                "UPDATE jobs SET lease_until=now()-interval '1 second' WHERE id=%s", (job_id,)
+            )
+    assert claim(("index",), job_id=job_id) is None
+    with connection() as conn:
+        row = conn.execute("SELECT status,attempts FROM jobs WHERE id=%s", (job_id,)).fetchone()
+    assert row == {"status": "failed", "attempts": 3}
+
+
+def test_retry_does_not_reopen_finished_job(infra):
+    with connection() as conn:
+        job_id = enqueue(conn, "index", post_id=1)
+    job = claim(("index",), job_id=job_id)
+    finish(job)
+    retry(job, "metrics unavailable")
+    with connection() as conn:
+        assert (
+            conn.execute("SELECT status FROM jobs WHERE id=%s", (job_id,)).fetchone()["status"]
+            == "done"
+        )
+
+
+def test_embedding_record_replays_full_request_from_cold_cache(infra, monkeypatch, tmp_path):
+    monkeypatch.setenv("MODEL_MODE", "record")
+    monkeypatch.setenv("RECORDINGS_DIR", str(tmp_path))
+    settings.cache_clear()
+    calls = []
+
+    def simulated_provider(self, texts):
+        calls.append(texts)
+        return FixtureEmbeddings().embed_documents(texts)
+
+    # Synthetic provider data only. This test does not call or record Gemini.
+    monkeypatch.setattr(CachedEmbeddings, "_embed_missing", simulated_provider)
+    embedding = CachedEmbeddings()
+    embedding.embed_documents(["Python"])
+    texts = ["Python", "제주 여행", "제주 여행"]
+    recorded = embedding.embed_documents(texts)
+    assert calls == [["Python"], ["제주 여행"]]
+    with connection() as conn:
+        conn.execute("DELETE FROM embedding_cache")
+    monkeypatch.setenv("MODEL_MODE", "replay")
+    settings.cache_clear()
+    replayed = embedding.embed_documents(texts)
+    for actual, expected in zip(replayed, recorded, strict=True):
+        assert actual == pytest.approx(expected)
+    assert len(calls) == 2
+    # A warm cache must not conceal a missing recording.
+    for path in tmp_path.iterdir():
+        path.unlink()
+    with pytest.raises(FileNotFoundError):
+        embedding.embed_documents(texts)
+
+
+def test_profile_uses_recent_actions_instead_of_largest_post_ids(infra):
+    now = datetime.now(UTC)
+    recent = [1.0] + [0.0] * 767
+    old = [0.0, 1.0] + [0.0] * 766
+    with connection() as conn:
+        for i in range(7):
+            conn.execute(
+                """UPDATE posts SET embedding=%s::vector,embedding_space=%s,embedding_version=version
+                WHERE id=%s""",
+                (vector_sql(recent if i < 5 else old), space(), i + 1),
+            )
+            accept_event(
+                Event(
+                    event_id=uuid4(),
+                    kind="like",
+                    user_id=1,
+                    post_id=i + 1,
+                    occurred_at=now - timedelta(minutes=i + 1),
+                )
+            )
+    update_profile(1)
+    with connection() as conn:
+        row = conn.execute("SELECT interests,embedding::text FROM users WHERE id=1").fetchone()
+    base = FixtureEmbeddings().embed_query(row["interests"])
+    expected = normalize([0.7 * x + 0.3 * y for x, y in zip(base, recent, strict=True)])
+    assert json.loads(row["embedding"]) == pytest.approx(expected, abs=1e-7)
+
+
+def test_stale_user_vector_is_not_used_for_similarity(infra):
+    prepare()
+    with connection() as conn:
+        conn.execute("UPDATE users SET version=version+1 WHERE id=1")
+    candidates = retrieve_candidates(1)
+    assert candidates
+    assert all(p["similarity"] is None and "embedding" not in p["sources"] for p in candidates)
+
+
+def test_candidate_merge_keeps_fresh_and_popular_posts(infra):
+    prepare()
+    with connection() as conn:
+        for post_id, likes in [(1001, 0), (1002, 1_000_000)]:
+            conn.execute(
+                """INSERT INTO posts(id,author_id,body,topic,created_at,likes)
+                VALUES (%s,10,'unindexed','new',now(),%s)""",
+                (post_id, likes),
+            )
+    candidates = retrieve_candidates(1)
+    assert len(candidates) == 30
+    by_id = {p["id"]: p for p in candidates}
+    assert "latest" in by_id[1001]["sources"]
+    assert "popular" in by_id[1002]["sources"]
+
+
+def test_function_generation_rejects_superseded_result_and_labels_replay(infra, monkeypatch):
+    from sns_recommend.pipelines.generation import generate
+
+    candidate = {"id": 1, "author_id": 10, "topic": "backend"}
+    monkeypatch.setattr(
+        "sns_recommend.pipelines.generation.prepare_inputs",
+        lambda user_id: {"candidates": [candidate]},
+    )
+
+    def supersede(inputs):
+        with connection() as conn:
+            enqueue(conn, "build", user_id=1)
+        return {"ordered_ids": [1], "mode": "replay"}
+
+    monkeypatch.setattr("sns_recommend.pipelines.generation.rerank_candidates", supersede)
+    result = generate(1)
+    assert result["strategy"] == "replay_llm"
+    assert not result["published"]
+    assert not read_feed(1)["ready"]

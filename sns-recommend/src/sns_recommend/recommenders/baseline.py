@@ -10,5 +10,5 @@ def baseline(user_id, strategy="latest"):
     with connection() as conn:
         posts = conn.execute(f"SELECT id FROM posts WHERE NOT deleted ORDER BY {order}").fetchall()
         generation = allocate_generation(conn, user_id)
-    publish(user_id, [p["id"] for p in posts], strategy, generation)
+        publish(user_id, [p["id"] for p in posts], strategy, generation)
     return {"user_id": user_id, "strategy": strategy, "count": len(posts)}

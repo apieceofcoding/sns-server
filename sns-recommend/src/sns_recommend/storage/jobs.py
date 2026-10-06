@@ -7,6 +7,8 @@ from psycopg.types.json import Jsonb
 from sns_recommend.core.config import settings
 from sns_recommend.storage.postgres import connection
 
+MAX_ATTEMPTS = 3
+
 
 def allocate_generation(conn, user_id):
     row = conn.execute(
@@ -53,6 +55,12 @@ def enqueue(conn, kind, user_id=None, post_id=None, payload=None, throttle=False
 def claim(kinds=("index", "profile", "build"), job_id=None):
     owner = uuid4()
     with connection() as conn:
+        conn.execute(
+            """UPDATE jobs SET status='failed',error='retry limit reached',lease_until=NULL
+            WHERE kind=ANY(%s) AND (%s::uuid IS NULL OR id=%s::uuid)
+            AND status='running' AND lease_until<now() AND attempts>=%s""",
+            (list(kinds), job_id, job_id, MAX_ATTEMPTS),
+        )
         row = conn.execute(
             """SELECT * FROM jobs WHERE kind=ANY(%s) AND (%s::uuid IS NULL OR id=%s::uuid) AND
             ((status='pending' AND available_at<=now()) OR
@@ -82,7 +90,7 @@ def finish(job, status="done", error=None):
 
 
 def retry(job, error):
-    status = "failed" if job["attempts"] >= 3 else "running"
+    status = "failed" if job["attempts"] >= MAX_ATTEMPTS else "running"
     with connection() as conn:
         conn.execute(
             """UPDATE jobs SET status=%s,error=%s,lease_until=now()+interval '10 seconds'

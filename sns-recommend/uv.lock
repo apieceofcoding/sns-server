@@ -598,9 +598,6 @@ wheels = [
 binary = [
     { name = "psycopg-binary", marker = "implementation_name != 'pypy'" },
 ]
-pool = [
-    { name = "psycopg-pool" },
-]
 
 [[package]]
 name = "psycopg-binary"
@@ -850,7 +847,7 @@ dependencies = [
     { name = "langchain-google-genai" },
     { name = "langgraph" },
     { name = "langgraph-checkpoint-postgres" },
-    { name = "psycopg", extra = ["binary", "pool"] },
+    { name = "psycopg", extra = ["binary"] },
     { name = "pydantic-settings" },
     { name = "redis" },
     { name = "uvicorn" },
@@ -870,7 +867,7 @@ requires-dist = [
     { name = "langchain-google-genai", specifier = ">=4,<5" },
     { name = "langgraph", specifier = ">=1,<2" },
     { name = "langgraph-checkpoint-postgres", specifier = ">=3,<4" },
-    { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2,<4" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
     { name = "pydantic-settings", specifier = ">=2,<3" },
     { name = "redis", specifier = ">=5,<7" },
     { name = "uvicorn", specifier = ">=0.34,<1" },

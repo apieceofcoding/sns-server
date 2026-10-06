@@ -26,18 +26,20 @@ def infra(monkeypatch):
     monkeypatch.setenv("REDIS_URL", original.redis_url.rsplit("/", 1)[0] + "/15")
     monkeypatch.setenv("MODEL_MODE", "fixture")
     settings.cache_clear()
-    initialize()
     r = redis_client()
-    keys = list(r.scan_iter("recommend:*"))
-    if keys:
-        r.delete(*keys)
-    seed()
     try:
-        yield
-    finally:
+        initialize()
         keys = list(r.scan_iter("recommend:*"))
         if keys:
             r.delete(*keys)
-        settings.cache_clear()
-        with psycopg.connect(admin, autocommit=True) as conn:
-            conn.execute(sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(name)))
+        seed()
+        yield
+    finally:
+        try:
+            keys = list(r.scan_iter("recommend:*"))
+            if keys:
+                r.delete(*keys)
+        finally:
+            settings.cache_clear()
+            with psycopg.connect(admin, autocommit=True) as conn:
+                conn.execute(sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(name)))

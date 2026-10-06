@@ -6,7 +6,7 @@ from sns_recommend.core.config import settings
 from sns_recommend.core.resources import resource_directory
 from sns_recommend.evaluation.metrics import ndcg_at_k, recall_at_k
 from sns_recommend.providers.embeddings import CachedEmbeddings, FixtureEmbeddings, normalize
-from sns_recommend.providers.rerank import PROMPT_VERSION, rerank_candidates
+from sns_recommend.providers.rerank import PROMPT_VERSION, ranking_strategy, rerank_candidates
 from sns_recommend.recommenders.ranking import diversify, validate_ranking
 
 
@@ -58,9 +58,7 @@ def evaluate(path=None, k=10):
             ],
             "popular": [p["id"] for p in sorted(corpus, key=lambda p: p["likes"], reverse=True)],
             "embedding": [p["id"] for p in semantic],
-            "fixture_llm" if settings().model_mode == "fixture" else "llm": diversify(
-                candidates, ordered
-            ),
+            ranking_strategy(response["mode"]): diversify(candidates, ordered),
         }
         labels = {str(p["id"]): int(p["topic"] == user["topic"]) for p in corpus}
         lookup = {p["id"]: p for p in corpus}
