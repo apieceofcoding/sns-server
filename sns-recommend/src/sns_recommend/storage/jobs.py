@@ -1,16 +1,21 @@
+from __future__ import annotations
+
 import time
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 from uuid import uuid4
 
 from psycopg.types.json import Jsonb
 
 from sns_recommend.core.config import settings
+from sns_recommend.core.types import DatabaseConnection, Job, JobKind, JobStatus
 from sns_recommend.storage.postgres import connection
 
 MAX_ATTEMPTS = 3
 
 
-def allocate_generation(conn, user_id):
+def allocate_generation(conn: DatabaseConnection, user_id: int) -> int:
     row = conn.execute(
         """UPDATE users SET generation=GREATEST(generation+1,%s)
         WHERE id=%s RETURNING generation""",
@@ -21,8 +26,17 @@ def allocate_generation(conn, user_id):
     return row["generation"]
 
 
-def enqueue(conn, kind, user_id=None, post_id=None, payload=None, throttle=False):
+def enqueue(
+    conn: DatabaseConnection,
+    kind: JobKind,
+    user_id: int | None = None,
+    post_id: int | None = None,
+    payload: dict[str, Any] | None = None,
+    throttle: bool = False,
+) -> str | None:
     if kind == "build":
+        if user_id is None:
+            raise ValueError("build job requires user_id")
         # Serialize enqueue and publish against the same user row.
         conn.execute("SELECT id FROM users WHERE id=%s FOR UPDATE", (user_id,)).fetchone()
         existing = conn.execute(
@@ -52,7 +66,9 @@ def enqueue(conn, kind, user_id=None, post_id=None, payload=None, throttle=False
     return str(job_id)
 
 
-def claim(kinds=("index", "profile", "build"), job_id=None):
+def claim(
+    kinds: Sequence[JobKind] = ("index", "profile", "build"), job_id: str | None = None
+) -> Job | None:
     owner = uuid4()
     with connection() as conn:
         conn.execute(
@@ -77,10 +93,10 @@ def claim(kinds=("index", "profile", "build"), job_id=None):
         )
         row["owner"] = owner
         row["attempts"] += 1
-        return row
+        return cast(Job, row)
 
 
-def finish(job, status="done", error=None):
+def finish(job: Job, status: JobStatus = "done", error: str | None = None) -> None:
     with connection() as conn:
         conn.execute(
             """UPDATE jobs SET status=%s,error=%s,lease_until=NULL
@@ -89,7 +105,7 @@ def finish(job, status="done", error=None):
         )
 
 
-def retry(job, error):
+def retry(job: Job, error: str) -> None:
     status = "failed" if job["attempts"] >= MAX_ATTEMPTS else "running"
     with connection() as conn:
         conn.execute(

@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 from langchain_core.documents import Document
 
 from sns_recommend.core.config import settings
+from sns_recommend.core.types import IndexResult
 from sns_recommend.providers.embeddings import CachedEmbeddings, space, vector_sql
 from sns_recommend.storage.postgres import connection
 
 
-def index_posts(post_ids=None):
+def index_posts(post_ids: list[int] | None = None) -> IndexResult:
     with connection() as conn:
         if post_ids:
             posts = conn.execute("SELECT * FROM posts WHERE id=ANY(%s)", (post_ids,)).fetchall()

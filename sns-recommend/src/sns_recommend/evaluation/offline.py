@@ -1,16 +1,19 @@
+from __future__ import annotations
+
 import json
 from datetime import datetime
 from pathlib import Path
 
 from sns_recommend.core.config import settings
 from sns_recommend.core.resources import resource_directory
+from sns_recommend.core.types import EvaluationReport, QualityRow, RankingInput, StabilityRow
 from sns_recommend.evaluation.metrics import ndcg_at_k, recall_at_k
 from sns_recommend.providers.embeddings import CachedEmbeddings, FixtureEmbeddings, normalize
 from sns_recommend.providers.rerank import PROMPT_VERSION, ranking_strategy, rerank_candidates
 from sns_recommend.recommenders.ranking import diversify, validate_ranking
 
 
-def evaluate(path=None, k=10):
+def evaluate(path: str | Path | None = None, k: int = 10) -> EvaluationReport:
     source = (
         Path(path) if path is not None else resource_directory("data").joinpath("evaluation.json")
     )
@@ -24,7 +27,8 @@ def evaluate(path=None, k=10):
     embedding = FixtureEmbeddings() if settings().model_mode == "fixture" else CachedEmbeddings()
     vectors = embedding.embed_documents([p["body"] for p in data["posts"]])
     index = {p["id"]: v for p, v in zip(data["posts"], vectors, strict=True)}
-    rows, stability = [], []
+    rows: list[QualityRow] = []
+    stability: list[StabilityRow] = []
     for user in data["users"]:
         profile = embedding.embed_query(user["interests"])
         history = [a for a in past if a["user_id"] == user["id"]]
@@ -42,7 +46,7 @@ def evaluate(path=None, k=10):
             reverse=True,
         )
         candidates = semantic[:30]
-        inputs = {
+        inputs: RankingInput = {
             "interests": user["interests"],
             "history": history,
             "candidates": candidates,
@@ -82,7 +86,7 @@ def evaluate(path=None, k=10):
                 "same_order": ordered == other,
             }
         )
-    report = {
+    report: EvaluationReport = {
         "dataset": "synthetic",
         "model_mode": settings().model_mode,
         "k": k,

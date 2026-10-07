@@ -1,5 +1,7 @@
 """Transactional Outbox demo. Real SNS uses its own database and authentication."""
 
+from __future__ import annotations
+
 from uuid import uuid4
 
 import httpx
@@ -10,7 +12,7 @@ from sns_recommend.data.events import Event
 from sns_recommend.storage.postgres import connection
 
 
-def change_post(post_id, body):
+def change_post(post_id: int, body: str) -> dict[str, str | int]:
     with connection() as conn:
         row = conn.execute(
             """INSERT INTO source_demo.posts VALUES (%s,%s,1)
@@ -18,6 +20,7 @@ def change_post(post_id, body):
             version=source_demo.posts.version+1 RETURNING version""",
             (post_id, body),
         ).fetchone()
+        assert row is not None  # INSERT/UPDATE RETURNING always returns a row.
         event = Event(
             event_id=uuid4(),
             kind="post.updated",
@@ -32,7 +35,7 @@ def change_post(post_id, body):
     return {"event_id": str(event.event_id), "version": row["version"]}
 
 
-def relay(url="http://localhost:8001"):
+def relay(url: str = "http://localhost:8001") -> dict[str, int]:
     count = 0
     with connection() as conn:
         rows = conn.execute(

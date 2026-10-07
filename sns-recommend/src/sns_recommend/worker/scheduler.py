@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from sns_recommend.core.config import settings
 from sns_recommend.storage.jobs import enqueue
 from sns_recommend.storage.postgres import connection
 
 
-def schedule_active():
+def schedule_active() -> dict[str, int]:
     with connection() as conn:
         users = conn.execute(
             """SELECT u.id FROM users u WHERE active_at>now()-interval '30 minutes'

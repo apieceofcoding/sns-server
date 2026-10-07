@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from functools import lru_cache
 from typing import Literal
 
@@ -28,7 +30,7 @@ class Settings(BaseSettings):
 
     @field_validator("internal_token")
     @classmethod
-    def validate_internal_token(cls, token):
+    def validate_internal_token(cls, token: SecretStr) -> SecretStr:
         if any(not 33 <= ord(char) <= 126 for char in token.get_secret_value()):
             raise ValueError("internal token must contain visible ASCII characters only")
         return token

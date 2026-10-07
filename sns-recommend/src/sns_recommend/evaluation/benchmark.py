@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 from pathlib import Path
 from statistics import mean
@@ -5,10 +7,11 @@ from time import perf_counter
 
 from sns_recommend.core.config import settings
 from sns_recommend.core.measurement import metrics
+from sns_recommend.core.types import BenchmarkReport
 from sns_recommend.storage.feeds import read_feed
 
 
-def benchmark(user_id=1, requests=100):
+def benchmark(user_id: int = 1, requests: int = 100) -> BenchmarkReport:
     # Store-path measurement; excludes HTTP, Spring hydration and network between services.
     latencies, ages = [], []
     for _ in range(requests):
@@ -20,7 +23,7 @@ def benchmark(user_id=1, requests=100):
 
             ages.append(time() - result["created_at"])
     sorted_ms = sorted(latencies)
-    report = {
+    report: BenchmarkReport = {
         "scope": "local Redis read only; not end-to-end SNS latency",
         "mode": settings().model_mode,
         "requests": requests,

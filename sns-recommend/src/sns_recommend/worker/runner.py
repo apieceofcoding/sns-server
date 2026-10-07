@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import json
 import logging
@@ -15,17 +17,21 @@ from sns_recommend.worker.scheduler import schedule_active
 logger = logging.getLogger(__name__)
 
 
-def run_one():
+def run_one() -> bool:
     job = claim()
     if not job:
         return False
     try:
         if job["kind"] == "index":
+            if job["post_id"] is None:
+                raise ValueError("index job requires post_id")
             index_posts([job["post_id"]])
         elif job["kind"] == "build":
             run_graph(job)
             return True
         else:
+            if job["user_id"] is None:
+                raise ValueError("profile job requires user_id")
             process_profile(job["user_id"])
         finish(job)
     except Exception as exc:
@@ -34,7 +40,7 @@ def run_one():
     return True
 
 
-def main():
+def main() -> None:
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser()
     parser.add_argument("--once", action="store_true")
@@ -42,7 +48,7 @@ def main():
     if args.once:
         print(json.dumps({"processed": run_one()}))
     else:
-        last_schedule = 0
+        last_schedule = 0.0
         while True:
             try:
                 if time.monotonic() - last_schedule >= 30:

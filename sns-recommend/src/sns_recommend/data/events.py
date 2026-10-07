@@ -1,10 +1,13 @@
+from __future__ import annotations
+
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Literal, Self
 from uuid import UUID
 
 from psycopg.types.json import Jsonb
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue, model_validator
 
+from sns_recommend.core.types import DatabaseConnection, EventResult
 from sns_recommend.storage.jobs import enqueue
 from sns_recommend.storage.postgres import connection
 
@@ -37,10 +40,10 @@ class Event(BaseModel):
     user_id: int | None = Field(default=None, gt=0, le=2**63 - 1, strict=True)
     post_id: int | None = Field(default=None, gt=0, le=2**63 - 1, strict=True)
     version: int = Field(default=1, ge=1, le=2**63 - 1, strict=True)
-    payload: dict = Field(default_factory=dict)
+    payload: dict[str, JsonValue] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_fields(self):
+    def validate_fields(self) -> Self:
         if self.kind.startswith("post."):
             if self.post_id is None:
                 raise ValueError("post_id required")
@@ -57,7 +60,7 @@ class Event(BaseModel):
         return self
 
 
-def accept_event(event):
+def accept_event(event: Event) -> EventResult:
     with connection() as conn:
         if (
             event.user_id
@@ -116,7 +119,7 @@ def accept_event(event):
         return {"accepted": True, "duplicate": False}
 
 
-def excluded_ids(conn, user_id):
+def excluded_ids(conn: DatabaseConnection, user_id: int) -> set[int]:
     rows = conn.execute("SELECT post_id FROM exclusions WHERE user_id=%s", (user_id,)).fetchall()
     deleted = conn.execute("SELECT id FROM posts WHERE deleted").fetchall()
     return {r["post_id"] for r in rows} | {r["id"] for r in deleted}

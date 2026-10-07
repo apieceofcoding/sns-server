@@ -1,12 +1,18 @@
+from __future__ import annotations
+
 from datetime import UTC, datetime, timedelta
 from time import perf_counter
-from typing import TypedDict
+from typing import Any, Literal, TypedDict, overload
 
+from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.graph import END, START, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
 from sns_recommend.core.config import settings
 from sns_recommend.core.measurement import record_generation
+from sns_recommend.core.types import GraphResult, Job, PausedResult, RankingInput, RankingResult
 from sns_recommend.pipelines.generation import prepare_inputs
 from sns_recommend.providers.rerank import ranking_strategy, rerank_candidates
 from sns_recommend.recommenders.ranking import diversify, validate_ranking
@@ -25,8 +31,8 @@ class FeedState(TypedDict, total=False):
     snapshot_id: str
     created_at: float
     graph_version: str
-    inputs: dict
-    response: dict
+    inputs: RankingInput
+    response: RankingResult
     ordered: list[int]
     valid: bool
     strategy: str
@@ -34,7 +40,7 @@ class FeedState(TypedDict, total=False):
     published: bool
 
 
-def guard(state):
+def guard(state: FeedState) -> None:
     with connection() as conn:
         row = conn.execute(
             """UPDATE jobs SET lease_until=%s WHERE id=%s AND owner=%s
@@ -49,25 +55,30 @@ def guard(state):
             raise RuntimeError("job lease lost")
 
 
-def make_graph(checkpointer, pause=False):
-    def retrieve(state):
+def make_graph(
+    checkpointer: BaseCheckpointSaver[Any], pause: bool = False
+) -> CompiledStateGraph[FeedState, None, FeedState, FeedState]:
+    def retrieve(state: FeedState) -> FeedState:
         guard(state)
         result = prepare_inputs(state["user_id"])
         guard(state)
         return {"inputs": result}
 
-    def rerank(state):
+    def rerank(state: FeedState) -> FeedState:
         guard(state)
         try:
             result = rerank_candidates(state["inputs"])
             strategy = ranking_strategy(result["mode"])
-            answer = {"response": result, "strategy": strategy, "error": ""}
+            answer: FeedState = {"response": result, "strategy": strategy, "error": ""}
         except Exception as exc:
-            answer = {"response": {"ordered_ids": []}, "error": type(exc).__name__}
+            answer = {
+                "response": {"ordered_ids": [], "mode": settings().model_mode, "usage": {}},
+                "error": type(exc).__name__,
+            }
         guard(state)
         return answer
 
-    def validate(state):
+    def validate(state: FeedState) -> FeedState:
         guard(state)
         try:
             ids = validate_ranking(
@@ -77,18 +88,18 @@ def make_graph(checkpointer, pause=False):
         except ValueError:
             return {"valid": False, "error": "InvalidRanking"}
 
-    def fallback(state):
+    def fallback(state: FeedState) -> FeedState:
         guard(state)
         return {
             "ordered": [p["id"] for p in state["inputs"]["candidates"]],
             "strategy": "rules_fallback",
         }
 
-    def diversity(state):
+    def diversity(state: FeedState) -> FeedState:
         guard(state)
         return {"ordered": diversify(state["inputs"]["candidates"], state["ordered"])}
 
-    def publish_feed(state):
+    def publish_feed(state: FeedState) -> FeedState:
         guard(state)
         with connection() as conn:
             user = conn.execute(
@@ -98,7 +109,9 @@ def make_graph(checkpointer, pause=False):
                 "SELECT * FROM jobs WHERE id=%s FOR UPDATE", (state["job_id"],)
             ).fetchone()
             if (
-                user["generation"] != state["generation"]
+                user is None
+                or job is None
+                or user["generation"] != state["generation"]
                 or str(job["owner"]) != state["owner"]
                 or job["status"] != "running"
                 or job["lease_until"] <= datetime.now(UTC)
@@ -136,14 +149,24 @@ def make_graph(checkpointer, pause=False):
     return builder.compile(checkpointer=checkpointer, interrupt_after=["rerank"] if pause else [])
 
 
-def run_graph(job, pause=False):
+@overload
+def run_graph(job: Job, pause: Literal[False] = False) -> GraphResult: ...
+
+
+@overload
+def run_graph(job: Job, pause: bool) -> GraphResult | PausedResult: ...
+
+
+def run_graph(job: Job, pause: bool = False) -> GraphResult | PausedResult:
+    if job["user_id"] is None:
+        raise ValueError("build job requires user_id")
     started = perf_counter()
     # Check ownership before changing the checkpoint's owner or saved state.
     guard({"job_id": str(job["id"]), "owner": str(job["owner"])})
     with PostgresSaver.from_conn_string(settings().database_url) as saver:
         saver.setup()
         graph = make_graph(saver, pause)
-        config = {"configurable": {"thread_id": str(job["id"])}}
+        config: RunnableConfig = {"configurable": {"thread_id": str(job["id"])}}
         saved = graph.get_state(config)
         if saved.values:
             if saved.values["graph_version"] != GRAPH_VERSION:
@@ -182,7 +205,15 @@ def run_graph(job, pause=False):
     }
 
 
-def start_graph(user_id, pause=False):
+@overload
+def start_graph(user_id: int, pause: Literal[False] = False) -> GraphResult: ...
+
+
+@overload
+def start_graph(user_id: int, pause: bool) -> GraphResult | PausedResult: ...
+
+
+def start_graph(user_id: int, pause: bool = False) -> GraphResult | PausedResult:
     with connection() as conn:
         job_id = enqueue(conn, "build", user_id=user_id)
     job = claim(("build",), job_id=job_id)

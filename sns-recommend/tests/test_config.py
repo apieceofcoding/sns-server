@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any
+
 import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -19,17 +23,21 @@ from sns_recommend.core.config import Settings
         {"input_usd_per_million": float("inf")},
     ],
 )
-def test_invalid_settings_are_rejected(values):
+def test_invalid_settings_are_rejected(values: dict[str, Any]) -> None:
     with pytest.raises(ValidationError):
-        Settings(_env_file=None, **values)
+        Settings(**{"_env_file": None, **values})
 
 
-def test_config_hides_internal_token():
-    cfg = Settings(_env_file=None, internal_token="private-test-token")
+def test_config_hides_internal_token() -> None:
+    values: dict[str, Any] = {
+        "_env_file": None,
+        "internal_token": "private-test-token",
+    }
+    cfg = Settings(**values)
     assert "private-test-token" not in repr(cfg)
 
 
-def test_non_ascii_authentication_returns_unauthorized():
+def test_non_ascii_authentication_returns_unauthorized() -> None:
     with pytest.raises(HTTPException) as error:
         authenticate("잘못된 토큰")
     assert error.value.status_code == 401

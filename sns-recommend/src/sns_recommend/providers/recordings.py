@@ -1,5 +1,7 @@
 """Private, atomic response recordings shared by model providers."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import os
@@ -9,13 +11,13 @@ from tempfile import NamedTemporaryFile
 from sns_recommend.core.config import settings
 
 
-def recording_path(kind, encoded):
+def recording_path(kind: str, encoded: str) -> Path:
     return Path(settings().recordings_dir) / (
         hashlib.sha256(encoded.encode()).hexdigest() + f"-{kind}.json"
     )
 
 
-def write_recording(path, data):
+def write_recording(path: Path, data: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = None
     try:

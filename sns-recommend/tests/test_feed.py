@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Never
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -5,7 +9,7 @@ from sns_recommend.api import app
 from sns_recommend.storage.feeds import cursor_decode, cursor_encode
 
 
-def test_cursor_cannot_move_to_another_user():
+def test_cursor_cannot_move_to_another_user() -> None:
     cursor = cursor_encode(1, "abc", 20)
     assert cursor_decode(cursor, 1) == ("abc", 20)
     with pytest.raises(ValueError):
@@ -14,7 +18,7 @@ def test_cursor_cannot_move_to_another_user():
         cursor_decode(cursor[:-4] + "AAAA", 1)
 
 
-def test_internal_api_requires_token():
+def test_internal_api_requires_token() -> None:
     client = TestClient(app)
     assert client.get("/internal/feeds/1").status_code == 401
 
@@ -22,13 +26,13 @@ def test_internal_api_requires_token():
 @pytest.mark.parametrize(
     "cursor", ["!", "a" * 513, cursor_encode(1, "abc", True), cursor_encode(1, "../abc", 0)]
 )
-def test_malformed_cursor_is_rejected(cursor):
+def test_malformed_cursor_is_rejected(cursor: str) -> None:
     with pytest.raises(ValueError, match="invalid cursor"):
         cursor_decode(cursor, 1)
 
 
-def test_cursor_query_is_bounded_before_storage_access(monkeypatch):
-    def forbidden(*args):
+def test_cursor_query_is_bounded_before_storage_access(monkeypatch: pytest.MonkeyPatch) -> None:
+    def forbidden(*args: object) -> Never:
         raise AssertionError("invalid cursor reached storage")
 
     monkeypatch.setattr("sns_recommend.api.routers.feeds.connection", forbidden)

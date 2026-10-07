@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from typing import Never
 from uuid import uuid4
 
 import pytest
@@ -8,7 +11,7 @@ from sns_recommend.api import app
 from sns_recommend.data.events import Event
 
 
-def test_post_event_requires_content_contract():
+def test_post_event_requires_content_contract() -> None:
     with pytest.raises(ValidationError):
         Event(event_id=uuid4(), kind="post.updated", post_id=3)
     with pytest.raises(ValidationError):
@@ -28,7 +31,7 @@ def test_post_event_requires_content_contract():
         {"payload": {"body": "Python", "author_id": 10, "topic": "backend", "extra": 1}},
     ],
 )
-def test_invalid_events_are_rejected(changes):
+def test_invalid_events_are_rejected(changes: dict[str, object]) -> None:
     event = {
         "event_id": uuid4(),
         "kind": "post.updated",
@@ -39,8 +42,8 @@ def test_invalid_events_are_rejected(changes):
         Event.model_validate({**event, **changes})
 
 
-def test_invalid_profile_payload_never_reaches_database(monkeypatch):
-    def forbidden(*args):
+def test_invalid_profile_payload_never_reaches_database(monkeypatch: pytest.MonkeyPatch) -> None:
+    def forbidden(*args: object) -> Never:
         raise AssertionError("invalid request reached database")
 
     monkeypatch.setattr("sns_recommend.api.routers.events.accept_event", forbidden)

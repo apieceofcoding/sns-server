@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 import json
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field, StrictInt
 
 from sns_recommend.core.config import settings
 from sns_recommend.core.measurement import measured_call
+from sns_recommend.core.types import ModelMode, RankingInput, RankingResult, TokenUsage
 from sns_recommend.providers.recordings import recording_path, write_recording
 
 PROMPT_VERSION = "sns-rank-v1"
@@ -26,11 +29,11 @@ class Ranking(BaseModel):
     ordered_ids: Annotated[list[StrictInt], Field(max_length=50)]
 
 
-def ranking_strategy(mode):
+def ranking_strategy(mode: ModelMode) -> str:
     return {"fixture": "fixture_llm", "replay": "replay_llm"}.get(mode, "llm")
 
 
-def rerank_candidates(inputs):
+def rerank_candidates(inputs: RankingInput) -> RankingResult:
     candidates = inputs["candidates"]
     if not candidates:
         return {"ordered_ids": [], "mode": inputs["mode"], "usage": {}}
@@ -59,7 +62,7 @@ def rerank_candidates(inputs):
         data = json.loads(path.read_text())
         if data["input"] != encoded:
             raise ValueError("recording input mismatch")
-        return {**data["result"], "mode": "replay"}
+        return cast(RankingResult, {**data["result"], "mode": "replay"})
     from langchain_google_genai import ChatGoogleGenerativeAI
 
     if not cfg.google_api_key.get_secret_value():
@@ -73,20 +76,21 @@ def rerank_candidates(inputs):
         vertexai=False,
     )
 
-    def invoke():
+    def invoke() -> dict[str, Any]:
         response = model.with_structured_output(
             Ranking, method="json_schema", include_raw=True
         ).invoke(PROMPT.format_messages(payload=json.dumps(payload, ensure_ascii=False)))
+        assert isinstance(response, dict)  # include_raw=True returns the SDK envelope.
         response["usage"] = response["raw"].usage_metadata or {}
         return response
 
     response = measured_call("rerank", inputs["model"], invoke)
     if response.get("parsing_error") or response.get("parsed") is None:
         raise ValueError("invalid structured output")
-    result = {
+    result: RankingResult = {
         "ordered_ids": response["parsed"].ordered_ids,
         "mode": cfg.model_mode,
-        "usage": response["raw"].usage_metadata or {},
+        "usage": cast(TokenUsage, response["raw"].usage_metadata or {}),
     }
     if cfg.model_mode == "record":
         write_recording(path, {"input": encoded, "result": result})

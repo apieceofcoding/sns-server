@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import base64
 import binascii
 import hmac
@@ -9,6 +11,7 @@ from uuid import uuid4
 from redis import Redis
 
 from sns_recommend.core.config import settings
+from sns_recommend.core.types import FeedResponse
 
 MAX_CURSOR_LENGTH = 512
 PUBLISH = """
@@ -30,13 +33,20 @@ return 1
 """
 
 
-def redis_client():
+def redis_client() -> Redis[str]:
     return Redis.from_url(
         settings().redis_url, decode_responses=True, socket_connect_timeout=1, socket_timeout=1
     )
 
 
-def publish(user_id, ids, strategy, generation, snapshot_id=None, created_at=None):
+def publish(
+    user_id: int,
+    ids: list[int],
+    strategy: str,
+    generation: int,
+    snapshot_id: str | None = None,
+    created_at: float | None = None,
+) -> bool:
     snapshot_id = snapshot_id or uuid4().hex
     payload = {
         "snapshot_id": snapshot_id,
@@ -62,13 +72,13 @@ def publish(user_id, ids, strategy, generation, snapshot_id=None, created_at=Non
     return code == 1
 
 
-def cursor_encode(user_id, snapshot_id, offset):
+def cursor_encode(user_id: int, snapshot_id: str, offset: int) -> str:
     raw = json.dumps([user_id, snapshot_id, offset], separators=(",", ":")).encode()
     signature = hmac.digest(settings().internal_token.get_secret_value().encode(), raw, "sha256")
     return base64.urlsafe_b64encode(raw + signature).decode()
 
 
-def cursor_decode(cursor, user_id):
+def cursor_decode(cursor: str, user_id: int) -> tuple[str, int]:
     try:
         if len(cursor) > MAX_CURSOR_LENGTH:
             raise ValueError()
@@ -92,7 +102,9 @@ def cursor_decode(cursor, user_id):
         raise ValueError("invalid cursor") from exc
 
 
-def read_feed(user_id, limit=20, cursor=None, excluded=None):
+def read_feed(
+    user_id: int, limit: int = 20, cursor: str | None = None, excluded: set[int] | None = None
+) -> FeedResponse:
     r = redis_client()
     if cursor:
         snapshot, offset = cursor_decode(cursor, user_id)
@@ -106,7 +118,8 @@ def read_feed(user_id, limit=20, cursor=None, excluded=None):
     data = json.loads(raw)
     excluded = excluded or set()
     ids = data["ids"]
-    selected, end = [], min(len(ids), offset + limit * 5)
+    selected: list[int] = []
+    end = min(len(ids), offset + limit * 5)
     while offset < end and len(selected) < limit:
         post_id = ids[offset]
         offset += 1

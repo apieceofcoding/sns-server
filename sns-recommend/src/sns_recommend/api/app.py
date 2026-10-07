@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 from fastapi import Depends, FastAPI
 
 from sns_recommend.api.dependencies import authenticate
 from sns_recommend.api.routers import events, feeds, health, metrics
 
 
-def create_app():
+def create_app() -> FastAPI:
     app = FastAPI(title="SNS Recommend", version="0.1.0")
     app.include_router(health.router)
     for router in (feeds.router, events.router, metrics.router):

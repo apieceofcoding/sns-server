@@ -1,9 +1,14 @@
+from __future__ import annotations
+
 import json
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
+from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
 
+from sns_recommend.core.types import Candidate, DatabaseRow, GenerationResult
 from sns_recommend.data.events import excluded_ids
 from sns_recommend.providers.embeddings import CachedEmbeddings, normalize, space, vector_sql
 from sns_recommend.storage.feeds import publish
@@ -11,7 +16,7 @@ from sns_recommend.storage.jobs import allocate_generation, enqueue
 from sns_recommend.storage.postgres import connection
 
 
-def update_profile(user_id):
+def update_profile(user_id: int) -> dict[str, int]:
     with connection() as conn:
         user = conn.execute("SELECT * FROM users WHERE id=%s", (user_id,)).fetchone()
         if not user:
@@ -46,7 +51,9 @@ def update_profile(user_id):
     return {"user_id": user_id, "version": user["version"]}
 
 
-def retrieve_candidates(user_id, k=30, as_of=None):
+def retrieve_candidates(
+    user_id: int, k: int = 30, as_of: datetime | None = None
+) -> list[Candidate]:
     if not 1 <= k <= 50:
         raise ValueError("candidate count must be between 1 and 50")
     reference = as_of or datetime.now(UTC)
@@ -91,7 +98,7 @@ def retrieve_candidates(user_id, k=30, as_of=None):
             merged[row["id"]]["sources"].append(source)
     # Keep fresh and popular candidates even when semantic search already fills k.
     supplement = min(5, k // 3)
-    selected = {}
+    selected: dict[int, DatabaseRow] = {}
     for group in (
         semantic[: k - 2 * supplement],
         latest[:supplement],
@@ -108,21 +115,23 @@ def retrieve_candidates(user_id, k=30, as_of=None):
         key=lambda r: (r["similarity"] or 0, r["created_at"], r["id"]),
         reverse=True,
     )
-    return [{**r, "created_at": r["created_at"].isoformat()} for r in ranked]
+    return [cast(Candidate, {**r, "created_at": r["created_at"].isoformat()}) for r in ranked]
 
 
 class PostRetriever(BaseRetriever):
     user_id: int
     k: int = 30
 
-    def _get_relevant_documents(self, query, *, run_manager):
+    def _get_relevant_documents(
+        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
+    ) -> list[Document]:
         return [
             Document(page_content=p["body"], metadata={k: v for k, v in p.items() if k != "body"})
             for p in retrieve_candidates(self.user_id, self.k)
         ]
 
 
-def generate_embedding(user_id):
+def generate_embedding(user_id: int) -> GenerationResult:
     with connection() as conn:
         generation = allocate_generation(conn, user_id)
     update_profile(user_id)
@@ -132,11 +141,15 @@ def generate_embedding(user_id):
         user = conn.execute(
             "SELECT generation FROM users WHERE id=%s FOR UPDATE", (user_id,)
         ).fetchone()
-        published = user["generation"] == generation and publish(user_id, ids, "embedding", generation)
+        if user is None:
+            raise LookupError("unknown user")
+        published = user["generation"] == generation and publish(
+            user_id, ids, "embedding", generation
+        )
     return {"strategy": "embedding", "post_ids": ids, "published": published}
 
 
-def process_profile(user_id):
+def process_profile(user_id: int) -> None:
     update_profile(user_id)
     with connection() as conn:
         enqueue(conn, "build", user_id=user_id)

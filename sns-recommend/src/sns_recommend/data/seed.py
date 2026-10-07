@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import UTC, datetime, timedelta
 
 from sns_recommend.storage.postgres import connection
@@ -11,7 +13,7 @@ TOPICS = {
 }
 
 
-def seed():
+def seed() -> dict[str, int | str]:
     now = datetime.now(UTC)
     with connection() as conn:
         for user_id, interests in enumerate(list(TOPICS.values())[:3], 1):

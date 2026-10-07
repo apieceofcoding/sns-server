@@ -1,10 +1,13 @@
 """Read course assets from an editable checkout or an installed wheel."""
 
+from __future__ import annotations
+
 from importlib.resources import files
+from importlib.resources.abc import Traversable
 from pathlib import Path
 
 
-def resource_directory(name):
+def resource_directory(name: str) -> Traversable:
     bundled = files("sns_recommend").joinpath("resources", name)
     if bundled.is_dir():
         return bundled

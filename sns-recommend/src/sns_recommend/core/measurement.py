@@ -1,23 +1,30 @@
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from time import perf_counter
-from uuid import uuid4
+from typing import TypeVar
+from uuid import UUID, uuid4
 
 from sns_recommend.core.config import settings
+from sns_recommend.core.types import MetricsReport, TokenUsage
 from sns_recommend.storage.postgres import connection
+
+T = TypeVar("T")
 
 
 class CallLimitExceeded(RuntimeError):
     pass
 
 
-def reserve_call(kind, model):
+def reserve_call(kind: str, model: str) -> UUID:
     day = datetime.now(UTC).date()
     call_id = uuid4()
     with connection() as conn:
         conn.execute("SELECT pg_advisory_xact_lock(91731)")
-        count = conn.execute(
-            "SELECT count(*) AS n FROM model_calls WHERE day=%s", (day,)
-        ).fetchone()["n"]
+        row = conn.execute("SELECT count(*) AS n FROM model_calls WHERE day=%s", (day,)).fetchone()
+        assert row is not None  # COUNT always returns one row.
+        count = row["n"]
         if count >= settings().daily_call_limit:
             raise CallLimitExceeded("local daily call budget exhausted")
         conn.execute(
@@ -27,7 +34,9 @@ def reserve_call(kind, model):
     return call_id
 
 
-def complete_call(call_id, duration_ms, usage=None, error=False):
+def complete_call(
+    call_id: UUID, duration_ms: float, usage: TokenUsage | None = None, error: bool = False
+) -> None:
     usage = usage or {}
     cfg = settings()
     input_tokens, output_tokens = usage.get("input_tokens"), usage.get("output_tokens")
@@ -56,7 +65,7 @@ def complete_call(call_id, duration_ms, usage=None, error=False):
         )
 
 
-def measured_call(kind, model, fn):
+def measured_call(kind: str, model: str, fn: Callable[[], T]) -> T:
     call_id = reserve_call(kind, model)
     started = perf_counter()
     try:
@@ -72,7 +81,7 @@ def measured_call(kind, model, fn):
     return result
 
 
-def record_generation(job_id, duration_ms, result):
+def record_generation(job_id: UUID | str, duration_ms: float, result: Mapping[str, object]) -> None:
     with connection() as conn:
         conn.execute(
             """INSERT INTO generation_runs(job_id,mode,duration_ms,strategy,published)
@@ -89,7 +98,7 @@ def record_generation(job_id, duration_ms, result):
         )
 
 
-def metrics():
+def metrics() -> MetricsReport:
     with connection() as conn:
         calls = conn.execute("""SELECT kind,status,count(*) AS calls,sum(input_tokens) AS input_tokens,
             sum(output_tokens) AS output_tokens,sum(estimated_usd) AS estimated_usd

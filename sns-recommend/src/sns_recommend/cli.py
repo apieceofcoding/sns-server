@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import json
 
@@ -14,7 +16,7 @@ from sns_recommend.storage.postgres import connection, initialize
 from sns_recommend.worker.scheduler import schedule_active
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "command",
@@ -40,6 +42,7 @@ def main():
     parser.add_argument("--body", default="Python PostgreSQL 백엔드 실습")
     parser.add_argument("--pause-after-rerank", action="store_true")
     args = parser.parse_args()
+    result: object
     if args.command == "init":
         initialize()
         result = {"schema": "ready"}
@@ -67,8 +70,8 @@ def main():
         result = schedule_active()
     else:
         with connection() as conn:
-            result = {
-                "posts": conn.execute("SELECT count(*) AS n FROM posts").fetchone()["n"],
-                "users": conn.execute("SELECT count(*) AS n FROM users").fetchone()["n"],
-            }
+            posts = conn.execute("SELECT count(*) AS n FROM posts").fetchone()
+            users = conn.execute("SELECT count(*) AS n FROM users").fetchone()
+            assert posts is not None and users is not None  # COUNT always returns a row.
+            result = {"posts": posts["n"], "users": users["n"]}
     print(json.dumps(result, ensure_ascii=False, default=str))

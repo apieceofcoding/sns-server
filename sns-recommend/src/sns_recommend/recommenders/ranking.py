@@ -1,7 +1,13 @@
 """Candidate validation and deterministic diversity rules."""
 
+from __future__ import annotations
 
-def validate_ranking(candidates, ids):
+from collections.abc import Sequence
+
+from sns_recommend.core.types import Candidate
+
+
+def validate_ranking(candidates: Sequence[Candidate], ids: object) -> list[int]:
     expected = [p["id"] for p in candidates]
     if (
         not isinstance(ids, list)
@@ -13,9 +19,10 @@ def validate_ranking(candidates, ids):
     return ids
 
 
-def diversify(candidates, ids):
+def diversify(candidates: Sequence[Candidate], ids: Sequence[int]) -> list[int]:
     lookup = {p["id"]: p for p in candidates}
-    remaining, result = list(ids), []
+    remaining = list(ids)
+    result: list[int] = []
     while remaining:
         previous = lookup[result[-1]] if result else None
         next_id = next(

@@ -1,18 +1,24 @@
+from __future__ import annotations
+
+from typing import Never
+
 import psycopg
 import pytest
 
-from sns_recommend.worker import runner
+import sns_recommend.worker.runner as runner
 
 
-def test_worker_retries_storage_outage_without_logging_credentials(monkeypatch, caplog):
+def test_worker_retries_storage_outage_without_logging_credentials(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     attempts = []
     waits = []
 
-    def unavailable():
+    def unavailable() -> Never:
         attempts.append(1)
         raise psycopg.OperationalError("sensitive-database-password")
 
-    def stop_after_retry(seconds):
+    def stop_after_retry(seconds: float) -> None:
         waits.append(seconds)
         if len(waits) == 2:
             raise KeyboardInterrupt()

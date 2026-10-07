@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import hashlib
 import json
 import math
+from collections.abc import Sequence
 
 from langchain_core.embeddings import Embeddings
 from psycopg.types.json import Jsonb
@@ -19,14 +22,14 @@ KEYWORDS = [
 ]
 
 
-def normalize(vector):
+def normalize(vector: Sequence[float]) -> list[float]:
     norm = math.hypot(*vector)
     if not math.isfinite(norm) or norm == 0:
         raise ValueError("embedding must be finite and nonzero")
     return [x / norm for x in vector]
 
 
-def space():
+def space() -> str:
     cfg = settings()
     family = "fixture" if cfg.model_mode == "fixture" else "gemini"
     return f"{family}:{cfg.embedding_model}:{cfg.dimensions}"
@@ -35,7 +38,7 @@ def space():
 class FixtureEmbeddings(Embeddings):
     """Synthetic topic features, not Gemini output or learned semantic embeddings."""
 
-    def embed_documents(self, texts):
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
         vectors = []
         for text in texts:
             value = text.lower()
@@ -44,18 +47,19 @@ class FixtureEmbeddings(Embeddings):
             vectors.append(normalize(v))
         return vectors
 
-    def embed_query(self, text):
+    def embed_query(self, text: str) -> list[float]:
         return self.embed_documents([text])[0]
 
 
 class CachedEmbeddings(Embeddings):
-    def embed_documents(self, texts):
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
         cfg = settings()
         encoded = json.dumps({"space": space(), "texts": texts}, ensure_ascii=False, sort_keys=True)
         path = recording_path("emb", encoded)
         keys = [hashlib.sha256((space() + "\0" + t).encode()).hexdigest() for t in texts]
+        to_cache: Sequence[int]
         if cfg.model_mode == "replay":
             # Replay must verify the recording even when the live cache is warm.
             data = json.loads(path.read_text())
@@ -69,15 +73,15 @@ class CachedEmbeddings(Embeddings):
                     "SELECT key,embedding FROM embedding_cache WHERE key=ANY(%s)", (keys,)
                 ).fetchall()
             cached = {r["key"]: r["embedding"] for r in rows}
-            result = [cached.get(key) for key in keys]
-            missing = [i for i, value in enumerate(result) if value is None]
+            pending = [cached.get(key) for key in keys]
+            missing = [i for i, value in enumerate(pending) if value is None]
             if missing:
                 source = list(dict.fromkeys(texts[i] for i in missing))
                 vectors = self._embed_missing(source)
                 by_text = dict(zip(source, vectors, strict=True))
                 for i in missing:
-                    result[i] = by_text[texts[i]]
-            result = checked_vectors(result, len(texts))
+                    pending[i] = by_text[texts[i]]
+            result = checked_vectors(pending, len(texts))
             to_cache = missing
         if to_cache:
             with connection() as conn:
@@ -91,7 +95,7 @@ class CachedEmbeddings(Embeddings):
             write_recording(path, {"space": space(), "texts": texts, "vectors": result})
         return result
 
-    def _embed_missing(self, texts):
+    def _embed_missing(self, texts: list[str]) -> list[list[float]]:
         cfg = settings()
         if cfg.model_mode == "fixture":
             return FixtureEmbeddings().embed_documents(texts)
@@ -101,7 +105,7 @@ class CachedEmbeddings(Embeddings):
             raise ValueError("GOOGLE_API_KEY required for live/record mode")
         provider = GoogleGenerativeAIEmbeddings(
             model=cfg.embedding_model,
-            google_api_key=cfg.google_api_key.get_secret_value(),
+            api_key=cfg.google_api_key,
             output_dimensionality=cfg.dimensions,
             client_args={"http_options": {"timeout": 30000, "retry_options": {"attempts": 1}}},
         )
@@ -110,11 +114,11 @@ class CachedEmbeddings(Embeddings):
         )
         return checked_vectors(vectors, len(texts))
 
-    def embed_query(self, text):
+    def embed_query(self, text: str) -> list[float]:
         return self.embed_documents([text])[0]
 
 
-def checked_vectors(vectors, count):
+def checked_vectors(vectors: object, count: int) -> list[list[float]]:
     if (
         not isinstance(vectors, list)
         or len(vectors) != count
@@ -129,5 +133,5 @@ def checked_vectors(vectors, count):
     return [normalize(v) for v in vectors]
 
 
-def vector_sql(vector):
+def vector_sql(vector: Sequence[float]) -> str:
     return "[" + ",".join(str(float(x)) for x in vector) + "]"

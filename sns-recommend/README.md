@@ -110,4 +110,4 @@ RUN_INTEGRATION=1 uv run pytest -q
 
 각 브랜치는 이전 챕터 커밋을 포함합니다. 브랜치를 바꾼 뒤 `uv sync --locked`와 `uv run sns-rec init`을 실행해요. 완료된 스냅샷을 보존하며 다음 챕터를 이어갑니다.
 
-[챕터 자료](../materials/README.md), [Spring SNS 연동 예제](integrations/sns-app/README.md), [서비스 설계](../design/sns-recommend-service.md).
+[챕터 자료](../materials/README.md), [Spring SNS 연동 예제](integrations/sns-app/README.md), [서비스 설계](../materials/support/design/sns-recommend-service.md).

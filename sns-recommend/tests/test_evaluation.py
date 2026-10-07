@@ -1,8 +1,14 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
 from sns_recommend.evaluation.metrics import ndcg_at_k, recall_at_k
 from sns_recommend.evaluation.offline import evaluate
 
 
-def test_metrics_handle_missing_relevant_posts_and_order():
+def test_metrics_handle_missing_relevant_posts_and_order() -> None:
     labels = {"1": 1, "2": 1, "3": 0}
     assert recall_at_k([1, 3], labels, 2) == 0.5
     assert ndcg_at_k([1, 2], labels, 2) == 1.0
@@ -10,7 +16,9 @@ def test_metrics_handle_missing_relevant_posts_and_order():
     assert recall_at_k([1], {}, 10) == 0
 
 
-def test_evaluation_separates_context_from_available_candidates(tmp_path, monkeypatch):
+def test_evaluation_separates_context_from_available_candidates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     import json
     from pathlib import Path
 
