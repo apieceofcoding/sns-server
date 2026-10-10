@@ -1,11 +1,11 @@
 # SNS 추천 실습
 
-기존 [SNS 앱](sns-app/README.md)에 [Python 추천 서비스](sns-recommend/README.md)를 추가합니다. **1~9단원을 순서대로 실행해요.** 기본 모델은 모의 응답을 사용하므로 API 키와 호출 비용이 필요 없습니다.
+[SNS 화면](sns-front/README.md), [Spring API](sns-app/README.md), [Python 추천 서비스](sns-recommend/README.md)를 함께 실행합니다. **1~9단원을 순서대로 실행해요.** 기본 모델은 모의 응답을 사용하므로 API 키와 호출 비용이 필요 없습니다.
 
 <details>
 <summary>처음 한 번: 도구 설치 (Windows / macOS)</summary>
 
-[Git](https://git-scm.com/downloads)도 준비합니다. `git --version`으로 설치를 확인해요.
+[Node.js LTS](https://nodejs.org/)와 [Git](https://git-scm.com/downloads)을 준비합니다. `git --version`으로 설치를 확인해요.
 
 ### Windows (PowerShell)
 
@@ -39,6 +39,8 @@ javac -version
 docker info
 docker compose version
 uv --version
+node --version
+npm --version
 uv python install 3.13
 ```
 
@@ -51,8 +53,8 @@ Java와 javac는 25, Docker는 서버 정보가 나와야 합니다. 다른 Java
 Docker Desktop을 실행하고 저장소를 받습니다.
 
 ```sh
-git clone https://github.com/apieceofcoding/sns-server.git
-cd sns-server/sns-recommend
+git clone https://github.com/apieceofcoding/sns-service.git
+cd sns-service/sns-recommend
 ```
 
 ## 실습 순서
@@ -91,6 +93,16 @@ SELECT id, user_id, left(content, 60) AS content, created_at FROM posts ORDER BY
 작성자 1~6번은 백엔드, 여행, 운동, AI 개발, 여행 유튜브, 운동 식단의 글을 각각 40개 작성합니다. 독자 7번은 개발, 8번은 여행, 9번은 운동에 관심이 있어요. 아래 실습은 독자 7번으로 진행하고, 8번과 9번으로 바꿔 비교합니다.
 
 기존 seed 데이터는 덮어쓰지 않습니다. 이 구성을 생성하려면 빈 실습 DB를 사용해요.
+
+```sh
+# 별도 터미널에서 SNS 화면 실행 (sns-service/ 기준)
+cd sns-front
+npm ci
+npm run dev
+# 브라우저: http://localhost:3000
+```
+
+seed 계정에는 로그인 비밀번호가 없습니다. 데이터 생성 후 화면에서 새 계정으로 가입해 로그인과 게시글 작성을 확인해요. 피드 추천 비교 대상은 독자 7~9번입니다.
 
 ### part-2. 추천 조회
 
@@ -196,7 +208,7 @@ uv run sns-recommend benchmark --user 7
 
 ## 종료
 
-API와 worker를 `Ctrl+C`로 종료한 뒤 실행합니다. 데이터는 남아요.
+화면 서버, API와 worker를 `Ctrl+C`로 종료한 뒤 실행합니다. 데이터는 남아요.
 
 ```sh
 # 2단원부터 실행
