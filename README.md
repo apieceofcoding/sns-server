@@ -57,71 +57,137 @@ cd sns-server/sns-recommend
 
 ## 실습 순서
 
-**아래 표를 한 행씩 진행합니다.** 모든 명령은 `sns-recommend/`에서 실행해요.
+모든 명령은 `sns-recommend/`에서 실행합니다. 다음 단원으로 이동하기 전 API와 worker를 `Ctrl+C`로 종료해요. 데이터는 유지합니다.
 
-1. 표의 브랜치로 이동: `git switch 브랜치명`
-2. 아래 공통 준비 명령 실행
-3. 표의 실습 명령 실행 후 결과 확인
+### part-1. 데이터 준비
 
 ```sh
+git switch part-1-environment
 uv sync --locked
 docker compose -f ../sns-app/docker-compose.yml up -d --wait postgres
 docker compose up -d --wait
+uv run sns-recommend seed
+uv run sns-recommend status
 ```
 
-`seed`는 snsdb에 앱 테이블과 사용자 3명, 게시글 200개를 준비합니다. 다른 계정이나 작성자가 같은 ID를 사용하면 중단해요. 원본 DB는 5432, 벡터 DB는 55432입니다. Redis는 2단원부터 실행됩니다.
+사용자 3명, 글 200개를 확인해요. `seed`는 여기서 한 번만 실행합니다.
 
-**데이터는 1단원의 `seed`로 한 번만 만듭니다.** DB 구조가 추가되는 3, 4, 5, 9단원에서만 `init`을 실행해요. `init`은 기존 데이터를 유지하며 테이블과 컬럼을 준비합니다. 7단원 체크포인트 테이블은 LangGraph 실행 시 자동 생성됩니다.
+### part-2. 추천 조회
 
-| 단원 | 브랜치 | 실습 명령 | 확인 |
-|---|---|---|---|
-| 1. 데이터 | `part-1-environment` | `uv run sns-recommend seed`<br>`uv run sns-recommend status` | 사용자 3명, 글 200개 |
-| 2. 추천 조회 | `part-2-feed-api` | `uv run sns-recommend baseline --user 1 --strategy latest` | 최신순 ID 목록 저장 |
-| 3. 이벤트 전달 | `part-3-events` | `uv run sns-recommend init`<br>`uv run sns-recommend source-post --post 1001`<br>`uv run sns-recommend relay` | `delivered: 1` |
-| 4. 색인 | `part-4-indexing` | `uv run sns-recommend init`<br>`uv run sns-recommend index` | 게시글 벡터 저장 |
-| 5. 관심사 검색 | `part-5-retrieval` | `uv run sns-recommend init`<br>`uv run sns-recommend embedding --user 1` | 개인별 추천 ID |
-| 6. 재정렬 | `part-6-reranking` | `uv run sns-recommend generate --user 1` | 재정렬한 추천 ID |
-| 7. LangGraph | `part-7-langgraph` | `uv run sns-recommend graph --user 1` | 단계별 추천 생성 |
-| 8. 품질 평가 | `part-8-evaluation` | `uv run sns-recommend evaluate` | reports/evaluation.json |
-| 9. 조회 측정 | `part-9-resilience` | `uv run sns-recommend init`<br>`uv run sns-recommend benchmark --user 1` | reports/benchmark.json |
+```sh
+git switch part-2-feed-api
+uv sync --locked
+docker compose up -d --wait
+uv run sns-recommend baseline --user 1 --strategy latest
+```
 
-3단원은 실습 명령 전에 아래 방법으로 API를 실행합니다.
-
-9단원에서 목록이 만료됐다면 `uv run sns-recommend graph --user 1`로 다시 만든 뒤 측정합니다. 8단원은 합성 데이터 평가, 9단원은 Redis 조회 측정이에요.
-
-## API로 확인하기
-
-2단원부터 사용할 수 있습니다. 별도 터미널을 `sns-recommend/`에 열어 실행해요.
+별도 터미널을 `sns-recommend/`에 열고 API를 실행해요.
 
 ```sh
 uv run uvicorn sns_recommend.api:app --port 8001
 ```
 
-실습 터미널에서 조회합니다. Windows에서는 `curl` 대신 `curl.exe`를 사용해요.
+실습 터미널에서 추천 ID를 확인합니다. Windows에서는 `curl.exe`를 사용해요.
 
 ```sh
 curl -fsS -H "X-Internal-Token: course-local-token" http://localhost:8001/internal/feeds/1
 ```
 
-`ready: true`와 `post_ids`를 확인합니다. **다음 브랜치로 이동하기 전 API를 `Ctrl+C`로 종료하세요.**
+### part-3. 이벤트 전달
 
-## 더 실습하기
+```sh
+git switch part-3-events
+uv sync --locked
+uv run sns-recommend init
+uv run sns-recommend source-post --post 1001
+```
 
-| 실습 | 안내 |
-|---|---|
-| 이벤트 전송과 좋아요 | [3단원](docs/practice.md#3-outbox-전달) |
-| 중단 후 이어서 생성 | [7단원](docs/practice.md#7-langgraph와-복구) |
-| 자동 갱신 | [9단원](docs/practice.md#9-갱신과-조회-측정) |
-| 실제 Gemini 호출 | [모델 설정](sns-recommend/README.md#모델-설정) |
-| SNS 화면 연결 | [앱 안내](sns-app/README.md#추천-연결) |
+2단원과 같은 명령으로 API를 다시 실행한 뒤 전송합니다.
 
-## 검사와 종료
+```sh
+uv run sns-recommend relay
+```
 
-검사는 `uv run python -m pytest -q`입니다. API와 worker를 `Ctrl+C`로 종료한 뒤 아래 명령을 실행해요. 데이터는 남습니다.
+`delivered: 1`을 확인해요. 이후 `init`은 필요한 DB 구조만 추가하며 데이터를 다시 만들지 않습니다.
+
+### part-4. 게시글 색인
+
+```sh
+git switch part-4-indexing
+uv sync --locked
+uv run sns-recommend init
+uv run sns-recommend index
+```
+
+게시글 벡터를 저장합니다. 다시 실행하면 `indexed: 0`이에요.
+
+### part-5. 관심사 검색
+
+```sh
+git switch part-5-retrieval
+uv sync --locked
+uv run sns-recommend init
+uv run sns-recommend embedding --user 1
+```
+
+관심사에 맞는 추천 ID를 확인합니다.
+
+### part-6. 재정렬
+
+```sh
+git switch part-6-reranking
+uv sync --locked
+uv run sns-recommend generate --user 1
+```
+
+재정렬한 추천 ID를 확인해요. 기본값은 모의 응답입니다.
+
+### part-7. LangGraph
+
+```sh
+git switch part-7-langgraph
+uv sync --locked
+uv run sns-recommend graph --user 1
+```
+
+검색부터 추천 저장까지 실행합니다. 체크포인트 테이블은 자동으로 준비해요.
+
+### part-8. 품질 평가
+
+```sh
+git switch part-8-evaluation
+uv sync --locked
+uv run sns-recommend evaluate
+```
+
+`reports/evaluation.json`에서 합성 데이터의 전략별 점수를 비교합니다.
+
+### part-9. 조회 측정
+
+```sh
+git switch part-9-resilience
+uv sync --locked
+uv run sns-recommend init
+uv run sns-recommend graph --user 1
+uv run sns-recommend benchmark --user 1
+```
+
+`reports/benchmark.json`에서 Redis 조회 속도와 목록 나이를 확인해요.
+
+## 종료
+
+API와 worker를 `Ctrl+C`로 종료한 뒤 실행합니다. 데이터는 남아요.
 
 ```sh
 docker compose down
 docker compose -f ../sns-app/docker-compose.yml stop postgres
 ```
 
-48시간이 지나면 추천 대상 글이 줄어들 수 있습니다. 처음부터 다시 실습하려면 [데이터 초기화](docs/practice.md#검사와-종료)를 확인해요.
+다음에 이어 할 때는 해당 단원에서 `uv sync --locked`와 1단원의 두 Docker 명령을 실행합니다. `seed`는 반복하지 않아요.
+
+## 추가 실습
+
+- [이벤트, 복구, 자동 갱신과 검사](docs/practice.md)
+- [실제 Gemini 호출](sns-recommend/README.md#모델-설정)
+- [SNS 앱 연결](sns-app/README.md#추천-연결)
+- [데이터 초기화](docs/practice.md#검사와-종료): 글 작성 후 48시간이 지나 추천 대상이 줄었을 때 확인해요.
