@@ -64,6 +64,17 @@ def test_event_duplicate_and_old_version_do_not_queue_work(infra: None) -> None:
         assert count(conn, "jobs") == 1
 
 
+def test_failed_index_job_does_not_block_a_redelivered_event(infra: None) -> None:
+    event = Event(event_id=uuid4(), kind="post.updated", post_id=1, version=3)
+    accept_event(event)
+    with connection() as conn:
+        conn.execute("UPDATE jobs SET status='failed'")
+    accept_event(event.model_copy(update={"event_id": uuid4()}))
+    with connection() as conn:
+        pending = conn.execute("SELECT count(*) AS n FROM jobs WHERE status='pending'").fetchone()
+    assert pending is not None and pending["n"] == 1
+
+
 def test_recommendation_database_keeps_no_copy_of_posts(infra: None) -> None:
     assert index_posts()["indexed"] == 240
     assert index_posts()["indexed"] == 0
