@@ -9,7 +9,7 @@ dependencies = ["psycopg[binary,pool]>=3.2,<4", "redis>=5,<7", "pydantic-setting
 dev = ["pytest>=8,<9", "ruff>=0.11,<1"]
 
 [project.scripts]
-sns-rec = "sns_recommend.cli:main"
+sns-recommend = "sns_recommend.cli:main"
 
 [build-system]
 requires = ["hatchling"]

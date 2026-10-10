@@ -5,9 +5,9 @@
 ```sh
 uv sync --locked
 docker compose up -d --wait
-uv run sns-rec init
-uv run sns-rec seed
-uv run sns-rec status
+uv run sns-recommend init
+uv run sns-recommend seed
+uv run sns-recommend status
 uv run pytest
 ```
 
