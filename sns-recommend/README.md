@@ -5,7 +5,6 @@
 ```sh
 uv sync --locked
 docker compose up -d --wait
-uv run sns-recommend init
 uv run sns-recommend seed
 uv run sns-recommend baseline --strategy latest
 uv run uvicorn sns_recommend.api:app --port 8001
@@ -19,3 +18,6 @@ uv run pytest
 ```
 
 다음 페이지는 `next_cursor`를 그대로 전달해요. 첫 페이지에 목록이 없으면 `ready: false`, 만료된 커서는 410을 반환합니다. 원본 검사는 SNS에서 수행합니다.
+
+`seed` 실행 시 테이블도 준비합니다. DB 서버는 먼저 실행해 주세요. 기존 데이터는 유지하고 없는 ID만 추가합니다.
+
