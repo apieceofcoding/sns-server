@@ -4,8 +4,8 @@
 
 ```sh
 uv sync --locked
-uv run sns-rec init
-uv run sns-rec generate --user 1
+uv run sns-recommend init
+uv run sns-recommend generate --user 1
 uv run pytest
 ```
 
