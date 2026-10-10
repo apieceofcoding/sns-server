@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from .db import connection
 
-from sns_recommend.post_examples import post_body
+from sns_recommend.post_examples import post_body, post_created_at
 
 TOPICS = {
     "backend": "Python FastAPI PostgreSQL 백엔드 설계와 데이터베이스 실습",
@@ -23,5 +23,5 @@ def seed():
             conn.execute("""INSERT INTO posts(id,author_id,body,topic,likes,created_at)
                 VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
                          (i, 10 + i % 20, post_body(topic, (i - 1) // 5), topic,
-                          (i * 17) % 101, now - timedelta(minutes=201-i)))
-    return {"users": 3, "posts": 200, "data": "synthetic"}
+                          (i * 17) % 101, post_created_at(i, now)))
+    return {"users": 3, "posts": 200, "data": "synthetic", "reference_time": now.isoformat()}
