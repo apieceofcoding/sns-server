@@ -23,29 +23,21 @@ git switch part-1-environment
 uv sync --locked
 docker compose -f ../sns-app/docker-compose.yml up -d --wait postgres
 uv run sns-recommend seed
-```
 
-DB에 접속합니다.
-
-```sh
+# DB 접속
 docker compose -f ../sns-app/docker-compose.yml exec postgres psql -U snsuser -d snsdb -P pager=off
 ```
 
-사용자와 게시글 샘플을 조회해요.
-
 ```sql
-SELECT id, username, created_at
-FROM users
-ORDER BY id
-LIMIT 5;
+-- 사용자 샘플
+SELECT id, username, created_at FROM users ORDER BY id LIMIT 5;
 
-SELECT id, user_id, left(content, 60) AS content, created_at
-FROM posts
-ORDER BY id
-LIMIT 5;
+-- 게시글 샘플
+SELECT id, user_id, left(content, 60) AS content, created_at FROM posts ORDER BY id LIMIT 5;
+
+-- DB 접속 종료
+\q
 ```
-
-`\q`를 입력해 DB 접속을 종료합니다.
 
 
 
