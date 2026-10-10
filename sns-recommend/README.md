@@ -4,10 +4,10 @@
 
 ```sh
 uv sync --locked
-uv run sns-rec init
-uv run sns-rec graph --user 1 --pause-after-rerank
+uv run sns-recommend init
+uv run sns-recommend graph --user 1 --pause-after-rerank
 uv run python -m sns_recommend.worker --once
-uv run sns-rec graph --user 2
+uv run sns-recommend graph --user 2
 uv run pytest
 ```
 
