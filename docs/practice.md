@@ -5,11 +5,11 @@
 추가 비교, 이벤트 전송과 복구를 직접 확인할 때 사용합니다. 명령은 `sns-recommend/`에서 실행해요.
 
 
-처음에는 저장소를 받고 `sns-recommend/`로 이동합니다. 이미 받았다면 `cd sns-server/sns-recommend`부터 시작해요.
+처음에는 저장소를 받고 `sns-recommend/`로 이동합니다. 이미 받았다면 `cd sns-service/sns-recommend`부터 시작해요.
 
 ```sh
-git clone https://github.com/apieceofcoding/sns-server.git
-cd sns-server/sns-recommend
+git clone https://github.com/apieceofcoding/sns-service.git
+cd sns-service/sns-recommend
 ```
 
 아래 명령은 모두 **`sns-recommend/`에서 1~9단원 순서로** 실행합니다. 브랜치를 바꾸기 전 API와 worker를 `Ctrl+C`로 종료해요. DB와 Redis의 데이터는 다음 단원에서도 유지합니다.
@@ -217,4 +217,4 @@ docker compose down -v
 
 ## SNS 앱 연결
 
-SNS 앱 실행은 [앱 안내](../sns-app/README.md), FastAPI 연결은 [Spring 연동 예제](https://github.com/apieceofcoding/sns-server/blob/main/sns-recommend/integrations/sns-app/README.md)를 따릅니다. 현재 앱의 추천 연결은 이전 mock이며 예제를 별도로 적용해야 해요.
+SNS 앱 실행은 [앱 안내](../sns-app/README.md), FastAPI 연결은 [Spring 연동 예제](https://github.com/apieceofcoding/sns-service/blob/main/sns-recommend/integrations/sns-app/README.md)를 따릅니다. 현재 앱의 추천 연결은 이전 mock이며 예제를 별도로 적용해야 해요.
