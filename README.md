@@ -65,12 +65,11 @@ cd sns-server/sns-recommend
 git switch part-1-environment
 uv sync --locked
 docker compose -f ../sns-app/docker-compose.yml up -d --wait postgres
-docker compose up -d --wait
 uv run sns-recommend seed
 uv run sns-recommend status
 ```
 
-사용자 3명, 글 200개를 확인해요. `seed`는 여기서 한 번만 실행합니다.
+SNS 앱 DB에서 사용자 3명, 글 200개를 확인해요. `seed`는 여기서 한 번만 실행합니다.
 
 ### part-2. 추천 조회
 
@@ -179,11 +178,13 @@ uv run sns-recommend benchmark --user 1
 API와 worker를 `Ctrl+C`로 종료한 뒤 실행합니다. 데이터는 남아요.
 
 ```sh
+# 2단원부터 실행
 docker compose down
+# SNS 앱 DB 종료
 docker compose -f ../sns-app/docker-compose.yml stop postgres
 ```
 
-다음에 이어 할 때는 해당 단원에서 `uv sync --locked`와 1단원의 두 Docker 명령을 실행합니다. `seed`는 반복하지 않아요.
+다음에 이어 할 때는 해당 단원에서 `uv sync --locked`와 1단원의 SNS 앱 DB 실행 명령을 실행합니다. 2단원부터는 `docker compose up -d --wait`도 실행해요. `seed`는 반복하지 않아요.
 
 ## 추가 실습
 
