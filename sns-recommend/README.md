@@ -1,16 +1,13 @@
-# 7. LangGraph 추천 생성과 복구
+# 8. 추천 품질 비교
 
-앞에서 만든 함수를 StateGraph 노드로 연결합니다. 상태는 PostgreSQL에, 완성된 목록은 Redis에 저장해요.
+같은 합성 데이터로 최신순, 인기순, 임베딩과 재정렬을 비교합니다.
 
 ```sh
 uv sync --locked
-uv run sns-rec init
-uv run sns-rec graph --user 1 --pause-after-rerank
-uv run python -m sns_recommend.worker --once
-uv run sns-rec graph --user 2
+uv run sns-rec evaluate
 uv run pytest
 ```
 
-첫 명령은 재정렬 노드의 체크포인트 저장 후 작업을 멈추고 lease를 만료시킵니다. 다음 worker가 같은 작업 ID로 검증부터 재개해요. 모델 응답과 체크포인트 저장 사이의 장애에서는 호출이 반복될 수 있습니다.
+`reports/evaluation.json`에 사용자별 Recall@10, NDCG@10, 작성자와 주제 다양성을 저장합니다. 관심사에는 cutoff 이전 행동만 사용하고, 평가 시점에 존재하는 게시글만 후보에 넣어요. 미래 행동을 추가해도 결과가 바뀌지 않는지 검사합니다.
 
-작업 예약과 lease는 DB 작업 테이블, 단계 상태는 LangGraph, 멱등 발행은 우리 Redis 코드가 담당해요. 새로운 생성 세대가 예약되면 오래된 결과는 발행하지 않습니다.
+기본 결과는 합성 주제 정답과 fixture 순위입니다. 실제 Gemini 품질이나 클릭률을 뜻하지 않아요. live 평가는 임베딩과 재정렬 호출 비용이 있으므로 소수 데이터부터 진행합니다. 후보 입력 순서를 바꾼 순위 안정성도 따로 확인해요.

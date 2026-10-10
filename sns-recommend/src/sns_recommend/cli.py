@@ -8,11 +8,12 @@ from .indexing import index_posts
 from .retrieval import generate_embedding
 from .ranking import generate
 from .graph import start_graph
+from .evaluation import evaluate
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["init", "seed", "status", "baseline", "source-post", "relay", "index", "embedding", "generate", "graph"])
+    parser.add_argument("command", choices=["init", "seed", "status", "baseline", "source-post", "relay", "index", "embedding", "generate", "graph", "evaluate"])
     parser.add_argument("--user", type=int, default=1)
     parser.add_argument("--strategy", choices=["latest", "popular"], default="latest")
     parser.add_argument("--post", type=int, default=1001)
@@ -38,6 +39,8 @@ def main():
         result = generate(args.user)
     elif args.command == "graph":
         result = start_graph(args.user,args.pause_after_rerank)
+    elif args.command == "evaluate":
+        result = evaluate()
     else:
         with connection() as conn:
             result = {"posts": conn.execute("SELECT count(*) AS n FROM posts").fetchone()["n"],
