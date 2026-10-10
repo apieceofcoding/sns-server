@@ -4,7 +4,6 @@
 
 ```sh
 uv sync --locked
-uv run sns-recommend init
 uv run sns-recommend graph --user 1 --pause-after-rerank
 uv run python -m sns_recommend.worker --once
 uv run sns-recommend graph --user 2
@@ -14,3 +13,6 @@ uv run pytest
 첫 명령은 재정렬 노드의 체크포인트 저장 후 작업을 멈추고 lease를 만료시킵니다. 다음 worker가 같은 작업 ID로 검증부터 재개해요. 모델 응답과 체크포인트 저장 사이의 장애에서는 호출이 반복될 수 있습니다.
 
 작업 예약과 lease는 DB 작업 테이블, 단계 상태는 LangGraph, 멱등 발행은 우리 Redis 코드가 담당해요. 새로운 생성 세대가 예약되면 오래된 결과는 발행하지 않습니다.
+
+`seed` 실행 시 테이블도 준비합니다. DB 서버는 먼저 실행해 주세요. 기존 데이터는 유지하고 없는 ID만 추가합니다.
+
