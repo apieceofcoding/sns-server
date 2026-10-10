@@ -43,19 +43,21 @@ def accept_event(event):
         if not inserted:
             return {"accepted": False, "duplicate": True}
         if event.kind.startswith("post."):
-            newer = conn.execute("""SELECT 1 FROM events WHERE post_id=%s AND kind LIKE 'post.%%'
-                AND event_id<>%s AND (payload->>'version')::bigint>=%s LIMIT 1""",
-                                 (event.post_id, event.event_id, event.version)).fetchone()
-            if not newer:
+            # Skip only while work for this or a newer version is alive. A failed job never blocks.
+            covered = conn.execute("""SELECT 1 FROM jobs WHERE kind='index' AND post_id=%s
+                AND status<>'failed' AND (payload->>'version')::bigint>=%s LIMIT 1""",
+                                   (event.post_id, event.version)).fetchone()
+            if not covered:
                 # The worker reads the current post from the SNS database, then stores its vector.
                 enqueue(conn, "index", post_id=event.post_id, payload={"version": event.version})
         elif event.kind in {"impression", "not_interested"}:
             conn.execute("""INSERT INTO exclusions VALUES (%s,%s,%s)
                 ON CONFLICT(user_id,post_id) DO UPDATE SET reason=EXCLUDED.reason""",
                          (event.user_id, event.post_id, event.kind))
+        elif event.kind in {"like", "click", "profile.updated"}:
+            enqueue(conn, "profile", user_id=event.user_id)  # Refresh the user vector.
         else:
-            # like, click and profile.updated refresh the user vector.
-            enqueue(conn, "profile", user_id=event.user_id)
+            raise ValueError("unsupported event kind")  # A new kind must be handled explicitly.
         return {"accepted": True, "duplicate": False}
 
 
