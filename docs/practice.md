@@ -29,10 +29,8 @@ docker compose -f ../sns-app/docker-compose.yml exec postgres psql -U snsuser -d
 ```
 
 ```sql
--- 사용자 샘플
+-- 사용자, 게시글 샘플
 SELECT id, username, created_at FROM users ORDER BY id LIMIT 5;
-
--- 게시글 샘플
 SELECT id, user_id, left(content, 60) AS content, created_at FROM posts ORDER BY id LIMIT 5;
 
 -- DB 접속 종료
