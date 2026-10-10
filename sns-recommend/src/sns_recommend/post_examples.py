@@ -75,6 +75,32 @@ STYLES: dict[str, tuple[str, ...]] = {
 }
 
 
+SUBJECTS.update({
+    "ai_dev": (
+        "Python으로 만드는 RAG 검색", "LLM 응답의 JSON 검증", "임베딩 모델의 검색 품질 비교",
+        "AI 코드 도우미의 테스트 작성", "LangGraph 작업의 중단과 재개", "프롬프트 변경 전후 평가",
+        "AI API의 호출 비용 기록", "벡터 검색의 후보 개수 조절", "AI 서비스의 응답 캐시", "LLM 실패 시 대체 응답",
+    ),
+    "travel_video": (
+        "제주 여행 브이로그의 촬영 동선", "서울 골목 여행 영상의 장면 구성", "부산 여행 유튜브의 현장 소리",
+        "비 오는 여행지에서 카메라 보호", "기차 여행 브이로그의 자막 편집", "혼자 여행하며 삼각대 사용",
+        "여행 영상에서 장소 정보 전달", "해외 여행 브이로그의 짐 줄이기", "여행 유튜브 썸네일 사진 선택", "여행 경비를 영상으로 기록",
+    ),
+    "fitness_food": (
+        "아침 운동 뒤 간단한 식사 준비", "러닝하는 날의 도시락 구성", "근력 운동과 식사 기록",
+        "바쁜 날 운동 식단의 장보기", "운동 후 두부와 달걀 요리", "주말 운동을 위한 밀프렙",
+        "운동일과 휴식일의 식사 관찰", "러닝 전후 수분 섭취 기록", "운동 식단에 채소 더하기", "외식하는 날의 운동 식사 계획",
+    ),
+})
+for topic in ("ai_dev", "travel_video", "fitness_food"):
+    STYLES[topic] = (
+        "오늘은 {subject}를 해봤어요. 직접 해보니 준비 과정에서 놓친 부분을 알게 되어 기록합니다.",
+        "{subject}를 해본 분들은 어떻게 시작하셨나요? 다음에 시도할 방법을 비교하고 있어요.",
+        "이번 주에는 {subject}에 집중했습니다. 진행 과정과 결과를 짧은 메모로 남겨 봅니다.",
+        "친구와 {subject}에 대해 이야기했어요. 서로의 경험이 달라 다음에는 다른 방법도 시도하려고 합니다.",
+    )
+
+
 def post_body(topic: str, ordinal: int) -> str:
     """Return one of 40 fixed examples per topic; never add a cosmetic post number."""
     subjects = SUBJECTS[topic]
@@ -85,18 +111,18 @@ def post_body(topic: str, ordinal: int) -> str:
     return styles[ordinal // len(subjects)].format(subject=subject)
 
 
-def post_created_at(post_id: int, reference: datetime) -> datetime:
+def post_created_at(post_id: int, reference: datetime, group_size: int = 5) -> datetime:
     """Include both inclusive 48-hour boundaries and future-post rejection cases."""
-    if not 1 <= post_id <= 200:
-        raise ValueError("post id must be between 1 and 200")
+    if group_size < 1 or not 1 <= post_id <= 40 * group_size:
+        raise ValueError("post id must fit the topic groups")
     if reference.utcoffset() is None:
         raise ValueError("reference must include a timezone")
-    if post_id <= 5:
+    if post_id <= group_size:
         return reference - timedelta(hours=48, minutes=1)
-    if post_id <= 10:
+    if post_id <= 2 * group_size:
         return reference - timedelta(hours=48)
-    if post_id <= 15:
+    if post_id <= 3 * group_size:
         return reference - timedelta(hours=47, minutes=59)
-    if post_id <= 20:
+    if post_id <= 4 * group_size:
         return reference + timedelta(minutes=1)
-    return reference - timedelta(minutes=post_id - 20)
+    return reference - timedelta(minutes=post_id - 4 * group_size)

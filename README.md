@@ -81,12 +81,16 @@ docker compose -f ../sns-app/docker-compose.yml exec postgres psql -U snsuser -d
 
 ```sql
 -- 사용자, 게시글 샘플
-SELECT id, username, created_at FROM users ORDER BY id LIMIT 5;
+SELECT id, username, created_at FROM users ORDER BY id;
 SELECT id, user_id, left(content, 60) AS content, created_at FROM posts ORDER BY id LIMIT 5;
 
 -- DB 접속 종료
 \q
 ```
+
+작성자 1~6번은 백엔드, 여행, 운동, AI 개발, 여행 유튜브, 운동 식단의 글을 각각 40개 작성합니다. 독자 7번은 개발, 8번은 여행, 9번은 운동에 관심이 있어요. 아래 실습은 독자 7번으로 진행하고, 8번과 9번으로 바꿔 비교합니다.
+
+기존 seed 데이터는 덮어쓰지 않습니다. 이 구성을 생성하려면 빈 실습 DB를 사용해요.
 
 ### part-2. 추천 조회
 
@@ -94,7 +98,7 @@ SELECT id, user_id, left(content, 60) AS content, created_at FROM posts ORDER BY
 git switch part-2-feed-api
 uv sync --locked
 docker compose up -d --wait
-uv run sns-recommend baseline --user 1 --strategy latest
+uv run sns-recommend baseline --user 7 --strategy latest
 ```
 
 별도 터미널을 `sns-recommend/`에 열고 API를 실행해요.
@@ -106,7 +110,7 @@ uv run uvicorn sns_recommend.api:app --port 8001
 실습 터미널에서 추천 ID를 확인합니다. Windows에서는 `curl.exe`를 사용해요.
 
 ```sh
-curl -fsS -H "X-Internal-Token: course-local-token" http://localhost:8001/internal/feeds/1
+curl -fsS -H "X-Internal-Token: course-local-token" http://localhost:8001/internal/feeds/7
 ```
 
 ### part-3. 이벤트 전달
@@ -143,7 +147,7 @@ uv run sns-recommend index
 git switch part-5-retrieval
 uv sync --locked
 uv run sns-recommend init
-uv run sns-recommend embedding --user 1
+uv run sns-recommend embedding --user 7
 ```
 
 관심사에 맞는 추천 ID를 확인합니다.
@@ -153,7 +157,7 @@ uv run sns-recommend embedding --user 1
 ```sh
 git switch part-6-reranking
 uv sync --locked
-uv run sns-recommend generate --user 1
+uv run sns-recommend generate --user 7
 ```
 
 재정렬한 추천 ID를 확인해요. 기본값은 모의 응답입니다.
@@ -163,7 +167,7 @@ uv run sns-recommend generate --user 1
 ```sh
 git switch part-7-langgraph
 uv sync --locked
-uv run sns-recommend graph --user 1
+uv run sns-recommend graph --user 7
 ```
 
 검색부터 추천 저장까지 실행합니다. 체크포인트 테이블은 자동으로 준비해요.
@@ -184,8 +188,8 @@ uv run sns-recommend evaluate
 git switch part-9-resilience
 uv sync --locked
 uv run sns-recommend init
-uv run sns-recommend graph --user 1
-uv run sns-recommend benchmark --user 1
+uv run sns-recommend graph --user 7
+uv run sns-recommend benchmark --user 7
 ```
 
 `reports/benchmark.json`에서 Redis 조회 속도와 목록 나이를 확인해요.
