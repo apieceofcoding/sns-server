@@ -98,7 +98,7 @@ RUN_INTEGRATION=1 uv run pytest -q
 | 브랜치 | 추가하는 것 |
 |---|---|
 | main | 시작 안내 |
-| part-1-environment | uv, Compose와 합성 데이터 |
+| part-1 | uv, Compose와 합성 데이터 |
 | part-2-feed-api | FastAPI, Redis 목록과 커서 |
 | part-3-events | Outbox, 이벤트와 작업 |
 | part-4-indexing | LangChain Document와 임베딩 |
