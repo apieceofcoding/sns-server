@@ -32,7 +32,7 @@ services:
     depends_on:
       db: {condition: service_healthy}
       redis: {condition: service_healthy}
-    command: ["sh", "-c", "uv run sns-rec init && uv run uvicorn sns_recommend.api:app --host 0.0.0.0 --port 8001"]
+    command: ["sh", "-c", "uv run sns-recommend init && uv run uvicorn sns_recommend.api:app --host 0.0.0.0 --port 8001"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
       interval: 3s
