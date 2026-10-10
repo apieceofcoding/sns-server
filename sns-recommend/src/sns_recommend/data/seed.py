@@ -4,6 +4,8 @@ from datetime import UTC, datetime, timedelta
 
 from sns_recommend.storage.postgres import connection
 
+from sns_recommend.post_examples import post_body
+
 TOPICS = {
     "backend": "Python FastAPI PostgreSQL 백엔드 설계와 데이터베이스 실습",
     "travel": "서울 제주 여행 사진과 맛집 산책 기록",
@@ -29,7 +31,7 @@ def seed() -> dict[str, int | str]:
                 (
                     i,
                     10 + i % 20,
-                    f"{TOPICS[topic]}: 오늘의 기록 {i}",
+                    post_body(topic, (i - 1) // 5),
                     topic,
                     (i * 17) % 101,
                     now - timedelta(minutes=201 - i),
