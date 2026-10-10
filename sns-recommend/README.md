@@ -4,7 +4,7 @@
 
 ```sh
 uv sync --locked
-uv run sns-rec evaluate
+uv run sns-recommend evaluate
 uv run pytest
 ```
 
