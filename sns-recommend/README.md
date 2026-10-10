@@ -1,26 +1,42 @@
 # SNS 추천 서비스
 
-1단원 코드입니다. [저장소 안내](../README.md)의 순서로 진행해요.
+1단원은 실습 데이터 준비까지만 진행합니다. FastAPI는 저장된 추천 목록을 읽고, worker는 목록을 미리 만듭니다.
 
-## 시작하기
+**실행 명령은 [저장소 README](../README.md#실습-순서)에 1~9단원 순서로 모았습니다.** 준비, API 조회, 이벤트 전달, 복구와 종료를 그 순서대로 진행해요.
 
-Docker와 uv를 준비하고 `sns-recommend/`에서 실행합니다.
+## 데이터와 포트
 
-```sh
-uv sync --locked
-docker compose up -d --wait
-uv run sns-recommend seed
-uv run sns-recommend status
-```
+| 항목 | 내용 |
+|---|---|
+| 데이터 | 사용자 3명, 5개 주제의 글 200개. 3단원에서 글 1개 추가 |
+| seed | 테이블 준비 후 기존 ID를 건너뜀. 본문과 시각을 덮어쓰지 않음 |
+| PostgreSQL | 55432 |
+| Redis | 56379. 2단원부터 추천 ID 목록 저장 |
+| FastAPI | 8001. 2단원부터 실행 |
 
-`seed`가 테이블과 사용자 3명, 글 200개를 준비합니다. 추천 DB만 채우고 기존 ID는 덮어쓰지 않아요. DB는 55432 포트입니다. Redis는 추천 목록을 저장하는 2단원부터 사용해요.
+[본문 예시](src/sns_recommend/post_examples.py)는 소재 10개와 표현 4종을 조합합니다. seed 응답의 `reference_time`을 T로 삼아요.
 
-## 데이터
+| 글 ID | 작성 시각 |
+|---|---|
+| 1~5 | T에서 48시간 1분 전 |
+| 6~10 | T에서 정확히 48시간 전 |
+| 11~15 | T에서 47시간 59분 전 |
+| 16~20 | T에서 1분 뒤 |
+| 21~200 | T에서 최근 1~180분 전 |
 
-5개 주제별 소재 10개와 표현 4종으로 글을 만듭니다. [본문과 작성 시각](src/sns_recommend/post_examples.py)을 수정할 수 있어요. 외부 API 호출은 없습니다.
+T 기준 시간 조건을 통과하는 글은 190개입니다. 실제 검색은 현재 시각을 쓰므로 시간이 지나면 결과가 달라져요. SNS 원본 계정과 게시글의 연결은 [Spring 연동 예제](https://github.com/apieceofcoding/sns-server/blob/main/sns-recommend/integrations/sns-app/README.md)를 따릅니다.
 
-seed의 `reference_time`을 T로 삼습니다. ID 1~5는 48시간 1분 전, 6~10은 정확히 48시간 전, 11~15는 47시간 59분 전, 16~20은 1분 뒤, 나머지는 최근 1~180분입니다. T 기준 시간 조건을 통과하는 글은 190개예요. 기존 데이터의 시각은 재실행으로 초기화하지 않습니다.
+## 모델 설정
 
-## 검사와 종료
+4단원부터 적용합니다. `.env.example`을 `.env`로 복사하고 필요한 값을 입력해요.
 
-`uv run python -m pytest -q`로 검사하고 `docker compose down`으로 종료합니다. 통합 검사를 실행한다면 실습 전용 DB를 사용해요.
+| MODEL_MODE | 동작 |
+|---|---|
+| fixture | 기본값. 모의 벡터와 순위, 외부 호출 없음 |
+| live | `GOOGLE_API_KEY`로 실제 Gemini 호출 |
+| record | 실제 호출 후 응답 저장 |
+| replay | 동일 입력과 모델의 저장된 응답 재생 |
+
+실제 호출은 `EMBEDDING_MODEL`과 `RERANK_MODEL`도 설정합니다. live/record 색인은 한 번에 최대 20개 글을 처리하므로 남은 글이 있으면 `index`를 반복해요. 모델을 바꾸면 색인도 다시 실행합니다. API 키와 녹화 파일은 Git에 넣지 않습니다.
+
+8단원 평가는 합성 정답셋, 9단원 benchmark는 Redis 읽기만 측정해요. 실제 클릭률과 SNS 전체 응답 시간을 뜻하지 않습니다. 기본 일일 호출 예산 20회는 제공자의 무료 한도와 다릅니다.
