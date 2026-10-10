@@ -66,10 +66,8 @@ git switch part-1-environment
 uv sync --locked
 docker compose -f ../sns-app/docker-compose.yml up -d --wait postgres
 uv run sns-recommend seed
-uv run sns-recommend status
+docker compose -f ../sns-app/docker-compose.yml exec postgres psql -U snsuser -d snsdb -P pager=off -c "SELECT id, user_id, left(content, 60) AS content, created_at FROM posts ORDER BY id LIMIT 5;"
 ```
-
-SNS 앱 DB에서 사용자 3명, 글 200개를 확인해요. `seed`는 여기서 한 번만 실행합니다.
 
 ### part-2. 추천 조회
 
