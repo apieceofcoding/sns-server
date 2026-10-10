@@ -1,16 +1,36 @@
-# 3. 게시글과 행동 전달
+# SNS 추천 서비스
 
-2단계의 조회 경로에 이벤트 접수와 작업 테이블을 추가합니다. 중복 이벤트와 오래된 게시글 버전을 구분해요.
+3단원 코드입니다. [저장소 안내](../README.md)의 순서로 진행해요.
+
+## 시작하기
+
+Docker와 uv를 준비하고 `sns-recommend/`에서 실행합니다.
 
 ```sh
 uv sync --locked
-uv run sns-recommend source-post --post 1001
-uv run uvicorn sns_recommend.api:app --port 8001
+docker compose up -d --wait
+uv run sns-recommend seed
+uv run sns-recommend status
 ```
 
-다른 터미널에서 `uv run sns-recommend relay`를 두 번 실행합니다. 첫 실행은 1건, 두 번째는 0건 전달해요. 전송 후 응답을 받기 전에 중단되면 다시 전달되며, 수신자가 이벤트 ID로 중복을 제거합니다.
+`seed`가 테이블과 사용자 3명, 글 200개를 준비합니다. 추천 DB만 채우고 기존 ID는 덮어쓰지 않아요. DB는 55432, Redis는 56379 포트입니다.
 
-Outbox 시연은 별도 `source_demo` 스키마를 사용합니다. 실제 SNS에서는 원본 SNS DB의 트랜잭션과 Outbox를 사용해요. 이 단계는 작업을 저장하며 worker 실행은 다음 단계에서 추가합니다.
+## 데이터
 
-`seed` 실행 시 테이블도 준비합니다. DB 서버는 먼저 실행해 주세요. 기존 데이터는 유지하고 없는 ID만 추가합니다.
+5개 주제별 소재 10개와 표현 4종으로 글을 만듭니다. [본문과 작성 시각](src/sns_recommend/post_examples.py)을 수정할 수 있어요. 외부 API 호출은 없습니다.
 
+seed의 `reference_time`을 T로 삼습니다. ID 1~5는 48시간 1분 전, 6~10은 정확히 48시간 전, 11~15는 47시간 59분 전, 16~20은 1분 뒤, 나머지는 최근 1~180분입니다. T 기준 시간 조건을 통과하는 글은 190개예요. 기존 데이터의 시각은 재실행으로 초기화하지 않습니다.
+
+## 추천 실습
+
+아래 순서로 실행합니다. 전체 명령은 `uv run sns-recommend --help`로 확인해요.
+
+```sh
+uv run sns-recommend baseline --user 1 --strategy latest
+```
+
+API는 `uv run uvicorn sns_recommend.api:app --port 8001`로 실행합니다. `/internal/feeds/1` 조회에는 `X-Internal-Token: course-local-token` 헤더를 사용해요.
+
+## 검사와 종료
+
+`uv run python -m pytest -q`로 검사하고 `docker compose down`으로 종료합니다. 통합 검사를 실행한다면 실습 전용 DB와 Redis를 사용해요.
