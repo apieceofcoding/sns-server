@@ -10,9 +10,16 @@
 |---|---|
 | 데이터 | 사용자 3명, 5개 주제의 글 200개. 3단원에서 글 1개 추가 |
 | seed | 테이블 준비 후 기존 ID를 건너뜀. 본문과 시각을 덮어쓰지 않음 |
-| PostgreSQL | 55432 |
+| 원본 PostgreSQL | 18, snsdb, 5432 |
+| 벡터 PostgreSQL | 18 + pgvector, recommend, 55432 |
 | Redis | 56379. 2단원부터 추천 ID 목록 저장 |
 | FastAPI | 8001. 2단원부터 실행 |
+
+원본 사용자와 게시글은 앱의 `snsdb`(5432)에 저장합니다. `SOURCE_DATABASE_URL`은 원본 DB, `DATABASE_URL`은 벡터 DB(55432) 연결이에요. `seed`와 `status`는 원본 DB를 사용하며, 추천 DB에 `users`, `posts`를 만들지 않습니다.
+
+관심사 원문은 snsdb의 `user_interests`에 저장해요. 게시글은 앱의 `content`, `user_id`, `like_count` 컬럼을 사용합니다. seed 계정은 `course-user-1`부터 `course-user-3`까지이며 로그인용 비밀번호는 설정하지 않습니다.
+
+두 DB는 PostgreSQL 18을 사용합니다. 추천 DB는 `recommend-index-pg18` 볼륨에서 새로 시작해요. 이전 실습 볼륨은 보존되지만 자동으로 이전되지 않습니다. 1단원은 pgvector 확장만 준비하고, 4단원부터 원본 ID와 임베딩, 검색용 메타데이터를 색인합니다.
 
 [본문 예시](src/sns_recommend/post_examples.py)는 소재 10개와 표현 4종을 조합합니다. seed 응답의 `reference_time`을 T로 삼아요.
 
@@ -24,7 +31,7 @@
 | 16~20 | T에서 1분 뒤 |
 | 21~200 | T에서 최근 1~180분 전 |
 
-T 기준 시간 조건을 통과하는 글은 190개입니다. 실제 검색은 현재 시각을 쓰므로 시간이 지나면 결과가 달라져요. SNS 원본 계정과 게시글의 연결은 [Spring 연동 예제](https://github.com/apieceofcoding/sns-server/blob/main/sns-recommend/integrations/sns-app/README.md)를 따릅니다.
+T 기준 시간 조건을 통과하는 글은 190개입니다. 실제 검색은 현재 시각을 쓰므로 시간이 지나면 결과가 달라져요. 추천 목록 조회의 Spring 연결은 [Spring 연동 예제](https://github.com/apieceofcoding/sns-server/blob/main/sns-recommend/integrations/sns-app/README.md)를 따릅니다.
 
 ## 모델 설정
 
@@ -40,3 +47,13 @@ T 기준 시간 조건을 통과하는 글은 190개입니다. 실제 검색은 
 실제 호출은 `EMBEDDING_MODEL`과 `RERANK_MODEL`도 설정합니다. live/record 색인은 한 번에 최대 20개 글을 처리하므로 남은 글이 있으면 `index`를 반복해요. 모델을 바꾸면 색인도 다시 실행합니다. API 키와 녹화 파일은 Git에 넣지 않습니다.
 
 8단원 평가는 합성 정답셋, 9단원 benchmark는 Redis 읽기만 측정해요. 실제 클릭률과 SNS 전체 응답 시간을 뜻하지 않습니다. 기본 일일 호출 예산 20회는 제공자의 무료 한도와 다릅니다.
+
+## DB 통합 테스트
+
+두 DB를 실행한 뒤 macOS에서는 아래 명령으로 저장 위치와 seed 멱등성을 확인합니다. 빈 실습 DB를 기준으로 검사해요.
+
+```sh
+COURSE_DB_TESTS=1 uv run python -m pytest -q
+```
+
+Windows PowerShell에서는 먼저 `$env:COURSE_DB_TESTS="1"`을 설정하고 `uv run python -m pytest -q`를 실행합니다.

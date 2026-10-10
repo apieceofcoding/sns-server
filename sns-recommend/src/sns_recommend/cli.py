@@ -1,6 +1,7 @@
 import argparse
 import json
-from .db import initialize, connection
+
+from .db import initialize, source_connection
 from .seed import seed
 
 
@@ -15,7 +16,9 @@ def main():
         initialize()
         result = seed()
     else:
-        with connection() as conn:
-            result = {"posts": conn.execute("SELECT count(*) AS n FROM posts").fetchone()["n"],
-                      "users": conn.execute("SELECT count(*) AS n FROM users").fetchone()["n"]}
+        with source_connection() as conn:
+            result = {
+                "posts": conn.execute("SELECT count(*) AS n FROM posts").fetchone()["n"],
+                "users": conn.execute("SELECT count(*) AS n FROM users").fetchone()["n"],
+            }
     print(json.dumps(result, ensure_ascii=False, default=str))

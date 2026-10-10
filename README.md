@@ -65,11 +65,12 @@ cd sns-server/sns-recommend
 
 ```sh
 uv sync --locked
+docker compose -f ../sns-app/docker-compose.yml up -d --wait postgres
 docker compose up -d --wait
 uv run sns-recommend seed
 ```
 
-`seed`가 새 단원에 필요한 테이블도 준비합니다. 기존 데이터는 유지해요. Redis는 2단원부터 실행됩니다.
+`seed`는 snsdb에 앱 테이블과 사용자 3명, 게시글 200개를 준비합니다. 다른 계정이나 작성자가 같은 ID를 사용하면 중단해요. 원본 DB는 5432, 벡터 DB는 55432입니다. Redis는 2단원부터 실행됩니다.
 
 | 단원 | 브랜치 | 실습 명령 | 확인 |
 |---|---|---|---|
@@ -119,6 +120,7 @@ curl -fsS -H "X-Internal-Token: course-local-token" http://localhost:8001/intern
 
 ```sh
 docker compose down
+docker compose -f ../sns-app/docker-compose.yml stop postgres
 ```
 
 48시간이 지나면 추천 대상 글이 줄어들 수 있습니다. 처음부터 다시 실습하려면 [데이터 초기화](docs/practice.md#검사와-종료)를 확인해요.
