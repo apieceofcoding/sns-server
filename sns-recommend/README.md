@@ -5,9 +5,9 @@
 ```sh
 uv sync --locked
 docker compose up -d --wait
-uv run sns-rec init
-uv run sns-rec seed
-uv run sns-rec baseline --strategy latest
+uv run sns-recommend init
+uv run sns-recommend seed
+uv run sns-recommend baseline --strategy latest
 uv run uvicorn sns_recommend.api:app --port 8001
 ```
 
