@@ -13,7 +13,7 @@ uv run sns-recommend seed
 uv run sns-recommend status
 ```
 
-`seed`가 테이블과 사용자 3명, 글 200개를 준비합니다. 추천 DB만 채우고 기존 ID는 덮어쓰지 않아요. DB는 55432, Redis는 56379 포트입니다.
+`seed`가 테이블과 사용자 3명, 글 200개를 준비합니다. 추천 DB만 채우고 기존 ID는 덮어쓰지 않아요. DB는 55432 포트입니다. Redis는 추천 목록을 저장하는 2단원부터 사용해요.
 
 ## 데이터
 
@@ -23,4 +23,4 @@ seed의 `reference_time`을 T로 삼습니다. ID 1~5는 48시간 1분 전, 6~10
 
 ## 검사와 종료
 
-`uv run python -m pytest -q`로 검사하고 `docker compose down`으로 종료합니다. 통합 검사를 실행한다면 실습 전용 DB와 Redis를 사용해요.
+`uv run python -m pytest -q`로 검사하고 `docker compose down`으로 종료합니다. 통합 검사를 실행한다면 실습 전용 DB를 사용해요.
