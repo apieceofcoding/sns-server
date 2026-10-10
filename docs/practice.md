@@ -20,8 +20,16 @@ cd sns-server/sns-recommend
 
 ```sh
 git switch part-1-environment
+
+# SNS 앱 전체 실행 (Windows: .\gradlew.bat jibDockerBuild)
+cd ../sns-app
+./gradlew jibDockerBuild
+docker compose up -d --wait
+# 브라우저에서 http://localhost:8080/actuator/health 확인: UP
+
+# 실습 데이터 생성
+cd ../sns-recommend
 uv sync --locked
-docker compose -f ../sns-app/docker-compose.yml up -d --wait postgres
 uv run sns-recommend seed
 
 # DB 접속
@@ -196,7 +204,7 @@ uv run python -m pytest -q
 API와 worker를 `Ctrl+C`로 종료한 뒤 컨테이너를 내립니다. 데이터는 유지해요.
 
 ```sh
-docker compose -f ../sns-app/docker-compose.yml stop postgres
+docker compose -f ../sns-app/docker-compose.yml down
 # 2단원부터 실행
 docker compose down
 ```
