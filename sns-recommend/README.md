@@ -1,16 +1,16 @@
-# 4. 게시글 색인
+# 5. 개인화 후보 검색
 
-LangChain Document와 임베딩 인터페이스로 글을 준비하고 pgvector에 저장합니다.
+저장된 관심사 벡터로 검색하고 최신순과 인기순 후보를 합칩니다. 노출, 관심 없음, 삭제와 오래된 게시글을 제외해요.
 
 ```sh
 uv sync --locked
 uv run sns-rec init
-uv run sns-rec seed
 uv run sns-rec index
-uv run python -m sns_recommend.worker --once
-uv run pytest
+uv run sns-rec embedding --user 1
+uv run sns-rec embedding --user 2
+uv run uvicorn sns_recommend.api:app --port 8001
 ```
 
-기본 `MODEL_MODE=fixture`는 합성 주제 벡터입니다. Gemini의 실제 출력이 아니에요. `live`는 실제 호출, `record`는 호출과 응답 저장, `replay`는 저장 파일 재생입니다. live/record는 호출당 최대 20개 글부터 처리합니다. 여러 번 `index`를 실행해 나머지를 처리해요.
+두 사용자의 추천 ID를 비교합니다. 신규 사용자는 명시한 관심사와 최신순 후보로 시작해요. likes/clicks 이벤트는 저장된 게시글 벡터로 관심사를 갱신합니다. 모델과 벡터 공간이 다른 결과는 섞지 않습니다.
 
-모델과 차원이 다른 벡터는 검색에 섞지 않습니다. 수정 중 완료된 오래된 임베딩 결과는 버전 검사로 저장하지 않아요.
+200개 규모에서는 pgvector의 정확 검색을 사용합니다. 대규모 ANN 인덱스 최적화는 이번 실습에 포함하지 않아요.

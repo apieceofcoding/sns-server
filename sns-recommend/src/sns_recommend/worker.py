@@ -3,14 +3,18 @@ import json
 import time
 from .jobs import claim, finish
 from .indexing import index_posts
+from .retrieval import process_profile
 
 
 def run_one():
-    job = claim(("index",))
+    job = claim(("index", "profile"))
     if not job:
         return False
     try:
-        index_posts([job["post_id"]])
+        if job["kind"] == "index":
+            index_posts([job["post_id"]])
+        else:
+            process_profile(job["user_id"])
         finish(job)
     except Exception as exc:
         finish(job, "failed", type(exc).__name__)
