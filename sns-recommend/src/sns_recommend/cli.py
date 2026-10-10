@@ -12,6 +12,7 @@ def main():
         initialize()
         result = {"schema": "ready"}
     elif args.command == "seed":
+        initialize()
         result = seed()
     else:
         with connection() as conn:
