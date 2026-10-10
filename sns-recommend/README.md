@@ -23,7 +23,7 @@ seed의 `reference_time`을 T로 삼습니다. ID 1~5는 48시간 1분 전, 6~10
 
 ## 추천 실습
 
-아래 순서로 실행합니다. 전체 명령은 `uv run sns-recommend --help`로 확인해요.
+이 단원부터 Redis를 사용합니다. 위의 Compose 명령으로 실행하고, 아래 명령으로 추천 ID 목록을 저장해요. 전체 명령은 `uv run sns-recommend --help`로 확인해요.
 
 ```sh
 uv run sns-recommend baseline --user 1 --strategy latest
