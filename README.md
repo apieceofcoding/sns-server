@@ -48,7 +48,7 @@ Java와 javac는 25, Docker는 서버 정보가 나와야 합니다. 다른 Java
 
 ## 시작하기
 
-Docker Desktop을 실행하고 저장소를 받습니다. 이미 받았다면 `sns-recommend/`로 이동해요.
+Docker Desktop을 실행하고 저장소를 받습니다.
 
 ```sh
 git clone https://github.com/apieceofcoding/sns-server.git
@@ -57,7 +57,7 @@ cd sns-server/sns-recommend
 
 ## 실습 순서
 
-모든 명령은 `sns-recommend/`에서 실행합니다. 다음 단원으로 이동하기 전 API와 worker를 `Ctrl+C`로 종료해요. 데이터는 유지합니다.
+모든 명령은 `sns-recommend/`에서 실행합니다.
 
 ### part-1. 데이터 준비
 
