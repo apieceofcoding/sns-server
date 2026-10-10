@@ -67,22 +67,23 @@ cd sns-server/sns-recommend
 uv sync --locked
 docker compose -f ../sns-app/docker-compose.yml up -d --wait postgres
 docker compose up -d --wait
-uv run sns-recommend seed
 ```
 
 `seed`는 snsdb에 앱 테이블과 사용자 3명, 게시글 200개를 준비합니다. 다른 계정이나 작성자가 같은 ID를 사용하면 중단해요. 원본 DB는 5432, 벡터 DB는 55432입니다. Redis는 2단원부터 실행됩니다.
 
+**데이터는 1단원의 `seed`로 한 번만 만듭니다.** DB 구조가 추가되는 3, 4, 5, 9단원에서만 `init`을 실행해요. `init`은 기존 데이터를 유지하며 테이블과 컬럼을 준비합니다. 7단원 체크포인트 테이블은 LangGraph 실행 시 자동 생성됩니다.
+
 | 단원 | 브랜치 | 실습 명령 | 확인 |
 |---|---|---|---|
-| 1. 데이터 | `part-1-environment` | `uv run sns-recommend status` | 사용자 3명, 글 200개 |
+| 1. 데이터 | `part-1-environment` | `uv run sns-recommend seed`<br>`uv run sns-recommend status` | 사용자 3명, 글 200개 |
 | 2. 추천 조회 | `part-2-feed-api` | `uv run sns-recommend baseline --user 1 --strategy latest` | 최신순 ID 목록 저장 |
-| 3. 이벤트 전달 | `part-3-events` | `uv run sns-recommend source-post --post 1001`<br>`uv run sns-recommend relay` | `delivered: 1` |
-| 4. 색인 | `part-4-indexing` | `uv run sns-recommend index` | 게시글 벡터 저장 |
-| 5. 관심사 검색 | `part-5-retrieval` | `uv run sns-recommend embedding --user 1` | 개인별 추천 ID |
+| 3. 이벤트 전달 | `part-3-events` | `uv run sns-recommend init`<br>`uv run sns-recommend source-post --post 1001`<br>`uv run sns-recommend relay` | `delivered: 1` |
+| 4. 색인 | `part-4-indexing` | `uv run sns-recommend init`<br>`uv run sns-recommend index` | 게시글 벡터 저장 |
+| 5. 관심사 검색 | `part-5-retrieval` | `uv run sns-recommend init`<br>`uv run sns-recommend embedding --user 1` | 개인별 추천 ID |
 | 6. 재정렬 | `part-6-reranking` | `uv run sns-recommend generate --user 1` | 재정렬한 추천 ID |
 | 7. LangGraph | `part-7-langgraph` | `uv run sns-recommend graph --user 1` | 단계별 추천 생성 |
 | 8. 품질 평가 | `part-8-evaluation` | `uv run sns-recommend evaluate` | reports/evaluation.json |
-| 9. 조회 측정 | `part-9-resilience` | `uv run sns-recommend benchmark --user 1` | reports/benchmark.json |
+| 9. 조회 측정 | `part-9-resilience` | `uv run sns-recommend init`<br>`uv run sns-recommend benchmark --user 1` | reports/benchmark.json |
 
 3단원은 실습 명령 전에 아래 방법으로 API를 실행합니다.
 
