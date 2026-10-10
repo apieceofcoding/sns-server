@@ -4,15 +4,18 @@ import time
 from .jobs import claim, finish
 from .indexing import index_posts
 from .retrieval import process_profile
+from .ranking import generate
 
 
 def run_one():
-    job = claim(("index", "profile"))
+    job = claim()
     if not job:
         return False
     try:
         if job["kind"] == "index":
             index_posts([job["post_id"]])
+        elif job["kind"] == "build":
+            generate(job["user_id"],job["generation"],str(job["id"]),job["created_at"].timestamp())
         else:
             process_profile(job["user_id"])
         finish(job)

@@ -1,16 +1,14 @@
-# 5. 개인화 후보 검색
+# 6. Gemini 재정렬
 
-저장된 관심사 벡터로 검색하고 최신순과 인기순 후보를 합칩니다. 노출, 관심 없음, 삭제와 오래된 게시글을 제외해요.
+검색 후보를 한 번에 전달하고 ID 순서만 받습니다. 결과가 후보의 순열인지 검사한 뒤 다양성을 조정해요.
 
 ```sh
 uv sync --locked
 uv run sns-rec init
-uv run sns-rec index
-uv run sns-rec embedding --user 1
-uv run sns-rec embedding --user 2
-uv run uvicorn sns_recommend.api:app --port 8001
+uv run sns-rec generate --user 1
+uv run pytest
 ```
 
-두 사용자의 추천 ID를 비교합니다. 신규 사용자는 명시한 관심사와 최신순 후보로 시작해요. likes/clicks 이벤트는 저장된 게시글 벡터로 관심사를 갱신합니다. 모델과 벡터 공간이 다른 결과는 섞지 않습니다.
+기본값은 합성 fixture이며 `fixture_llm`로 표시합니다. 실제 Gemini를 호출하지 않아요. 실제 호출은 `.env`에 `MODEL_MODE=live`와 개인 `GOOGLE_API_KEY`를 설정합니다. 무료 한도를 확인한 뒤 합성 데이터만 사용합니다.
 
-200개 규모에서는 pgvector의 정확 검색을 사용합니다. 대규모 ANN 인덱스 최적화는 이번 실습에 포함하지 않아요.
+시간 초과, 잘못된 ID와 출력 오류는 `rules_fallback`으로 대체합니다. 순위는 클릭 확률이 아닙니다. `record`로 저장한 실제 결과만 `replay` 모드에서 재생해요.
