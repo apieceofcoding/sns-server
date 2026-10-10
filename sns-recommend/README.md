@@ -98,7 +98,7 @@ RUN_INTEGRATION=1 uv run pytest -q
 | 브랜치 | 추가하는 것 |
 |---|---|
 | main | 시작 안내 |
-| part-1-environment | uv, Compose와 합성 데이터 |
+| part-1 | uv, Compose와 합성 데이터 |
 | part-2-feed-api | FastAPI, Redis 목록과 커서 |
 | part-3-events | Outbox, 이벤트와 작업 |
 | part-4-indexing | LangChain Document와 임베딩 |
@@ -117,3 +117,9 @@ RUN_INTEGRATION=1 uv run pytest -q
 `uv run sns-recommend seed`는 주제별 세부 소재 10개와 표현 4종을 조합해, 5개 주제에 각각 40개의 서로 다른 글을 만듭니다. [post_examples.py](src/sns_recommend/post_examples.py)에서 소재와 표현을 바꿀 수 있어요. 외부 모델 호출은 없습니다.
 
 기존 ID는 건너뛰므로 이미 만든 글을 덮어쓰지 않습니다. 새 예시는 빈 실습 DB에서 확인해요. 고정된 조합의 예시이며 실제 이용자 반응이나 추천 품질을 입증하는 데이터는 아닙니다.
+
+### 48시간 경계 실습
+
+seed 응답의 `reference_time`을 T로 사용합니다. ID 1~5는 T보다 48시간 1분 전, 6~10은 정확히 48시간 전, 11~15는 47시간 59분 전, 16~20은 1분 뒤입니다. 나머지 180개는 최근 1~180분에 배치해요. 각 경계 그룹에는 5개 주제가 하나씩 있습니다.
+
+T에 고정한 시간 필터에서는 1~5와 16~20을 제외하고 190개가 대상입니다. 최종 후보 수는 다른 필터와 검색 제한에 따라 달라져요. 정확한 경계 검사는 `retrieve_candidates(user_id, as_of=T)`로 실행합니다. 실제 조회는 현재 시각을 쓰므로 시간이 흐르면 포함 여부가 변합니다. 기존 DB의 글은 덮어쓰지 않아요.

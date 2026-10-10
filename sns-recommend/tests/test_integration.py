@@ -354,3 +354,19 @@ def test_function_generation_rejects_superseded_result_and_labels_replay(
     assert result["strategy"] == "replay_llm"
     assert not result["published"]
     assert not read_feed(1)["ready"]
+
+
+def test_retrieval_includes_exact_48h_boundary_and_rejects_future(infra: None) -> None:
+    from sns_recommend.post_examples import post_created_at
+
+    reference = datetime(2026, 10, 10, 12, tzinfo=UTC)
+    with connection() as conn:
+        conn.execute("UPDATE posts SET deleted=true WHERE id>20")
+        for post_id in range(1, 21):
+            conn.execute(
+                "UPDATE posts SET created_at=%s WHERE id=%s",
+                (post_created_at(post_id, reference), post_id),
+            )
+    prepare()
+    ids = {p["id"] for p in retrieve_candidates(1, k=50, as_of=reference)}
+    assert ids == set(range(6, 16))

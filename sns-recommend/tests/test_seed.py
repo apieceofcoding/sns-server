@@ -15,3 +15,21 @@ def test_post_examples_are_distinct_and_deterministic() -> None:
     assert len(set(bodies)) == 200
     assert bodies == [post_body(topic, n) for topic in TOPICS for n in range(40)]
     assert all("오늘의 기록" not in body for body in bodies)
+
+
+def test_seed_dates_cover_window_boundaries_for_every_topic() -> None:
+    from collections import Counter
+    from datetime import UTC, datetime, timedelta
+
+    from sns_recommend.post_examples import post_created_at
+
+    reference = datetime(2026, 10, 10, 12, tzinfo=UTC)
+    dates = {i: post_created_at(i, reference) for i in range(1, 201)}
+    assert all(dates[i] == reference - timedelta(hours=48, minutes=1) for i in range(1, 6))
+    assert all(dates[i] == reference - timedelta(hours=48) for i in range(6, 11))
+    assert all(dates[i] == reference - timedelta(hours=47, minutes=59) for i in range(11, 16))
+    assert all(dates[i] == reference + timedelta(minutes=1) for i in range(16, 21))
+    eligible = [i for i, date in dates.items() if reference - timedelta(hours=48) <= date <= reference]
+    assert len(eligible) == 190
+    counts = Counter(list(TOPICS)[i % 5] for i in eligible)
+    assert set(counts.values()) == {38}

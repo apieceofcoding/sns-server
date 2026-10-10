@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
-from sns_recommend.post_examples import post_body
+from sns_recommend.post_examples import post_body, post_created_at
 from sns_recommend.storage.postgres import connection
 
 TOPICS = {
@@ -33,7 +33,7 @@ def seed() -> dict[str, int | str]:
                     post_body(topic, (i - 1) // 5),
                     topic,
                     (i * 17) % 101,
-                    now - timedelta(minutes=201 - i),
+                    post_created_at(i, now),
                 ),
             )
-    return {"users": 3, "posts": 200, "data": "synthetic"}
+    return {"users": 3, "posts": 200, "data": "synthetic", "reference_time": now.isoformat()}
