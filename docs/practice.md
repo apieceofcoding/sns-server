@@ -21,12 +21,12 @@ cd sns-server/sns-recommend
 ```sh
 git switch part-1-environment
 uv sync --locked
-docker compose up -d --wait
+docker compose -f ../sns-app/docker-compose.yml up -d --wait postgres
 uv run sns-recommend seed
 uv run sns-recommend status
 ```
 
-`posts: 200`, `users: 3`을 확인합니다. 이 단원은 PostgreSQL만 실행해요.
+`posts: 200`, `users: 3`을 확인합니다. 이 단원은 SNS 앱의 PostgreSQL만 실행해요.
 
 ### 2. 저장된 추천 조회
 
@@ -185,6 +185,8 @@ uv run python -m pytest -q
 API와 worker를 `Ctrl+C`로 종료한 뒤 컨테이너를 내립니다. 데이터는 유지해요.
 
 ```sh
+docker compose -f ../sns-app/docker-compose.yml stop postgres
+# 2단원부터 실행
 docker compose down
 ```
 
