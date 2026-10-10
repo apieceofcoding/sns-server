@@ -1,16 +1,21 @@
-# 1. 실습 환경
+# 2. 저장된 추천 피드 조회
 
-로컬 PostgreSQL과 Redis, 합성 게시글 200개와 사용자 3명을 준비합니다.
+1단계 환경을 이어받습니다. API는 Redis 목록만 읽고 모델을 호출하지 않아요.
 
 ```sh
 uv sync --locked
 docker compose up -d --wait
 uv run sns-rec init
 uv run sns-rec seed
-uv run sns-rec status
+uv run sns-rec baseline --strategy latest
+uv run uvicorn sns_recommend.api:app --port 8001
+```
+
+다른 터미널에서 조회합니다.
+
+```sh
+curl -H 'X-Internal-Token: course-local-token' http://localhost:8001/internal/feeds/1
 uv run pytest
 ```
 
-`posts: 200`, `users: 3`을 확인해요. 기존 SNS 프로젝트와 다른 포트를 사용합니다.
-
-자료: [도메인](../materials/domain/01-environment.md), [실습](../materials/labs/01-environment.md).
+다음 페이지는 `next_cursor`를 그대로 전달해요. 첫 페이지에 목록이 없으면 `ready: false`, 만료된 커서는 410을 반환합니다. 원본 검사는 SNS에서 수행합니다.
