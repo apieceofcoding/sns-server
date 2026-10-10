@@ -59,12 +59,20 @@ cd sns-server/sns-recommend
 
 모든 명령은 `sns-recommend/`에서 실행합니다.
 
-### part-1. 데이터 준비
+### part-1. SNS 실행과 데이터 관찰
 
 ```sh
 git switch part-1-environment
+
+# SNS 앱 전체 실행 (Windows: .\gradlew.bat jibDockerBuild)
+cd ../sns-app
+./gradlew jibDockerBuild
+docker compose up -d --wait
+# 브라우저에서 http://localhost:8080/actuator/health 확인: UP
+
+# 실습 데이터 생성
+cd ../sns-recommend
 uv sync --locked
-docker compose -f ../sns-app/docker-compose.yml up -d --wait postgres
 uv run sns-recommend seed
 
 # DB 접속
@@ -189,11 +197,11 @@ API와 worker를 `Ctrl+C`로 종료한 뒤 실행합니다. 데이터는 남아�
 ```sh
 # 2단원부터 실행
 docker compose down
-# SNS 앱 DB 종료
-docker compose -f ../sns-app/docker-compose.yml stop postgres
+# SNS 앱 전체 종료
+docker compose -f ../sns-app/docker-compose.yml down
 ```
 
-다음에 이어 할 때는 해당 단원에서 `uv sync --locked`와 1단원의 SNS 앱 DB 실행 명령을 실행합니다. 2단원부터는 `docker compose up -d --wait`도 실행해요. `seed`는 반복하지 않아요.
+다음에 이어 할 때는 해당 단원에서 `uv sync --locked`와 `docker compose -f ../sns-app/docker-compose.yml up -d --wait`를 실행합니다. 2단원부터는 `docker compose up -d --wait`도 실행해요. `seed`는 반복하지 않아요.
 
 ## 추가 실습
 
