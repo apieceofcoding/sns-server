@@ -38,7 +38,7 @@ docker compose -f ../sns-app/docker-compose.yml exec postgres psql -U snsuser -d
 
 ```sql
 -- 사용자, 게시글 샘플
-SELECT id, username, created_at FROM users ORDER BY id LIMIT 5;
+SELECT id, username, created_at FROM users ORDER BY id;
 SELECT id, user_id, left(content, 60) AS content, created_at FROM posts ORDER BY id LIMIT 5;
 
 -- DB 접속 종료
@@ -53,10 +53,10 @@ SELECT id, user_id, left(content, 60) AS content, created_at FROM posts ORDER BY
 git switch part-2-feed-api
 uv sync --locked
 docker compose up -d --wait
-uv run sns-recommend baseline --user 1 --strategy latest
+uv run sns-recommend baseline --user 7 --strategy latest
 ```
 
-이 단원부터 Redis에 추천 ID를 저장합니다. 아래 공통 API 실행과 조회로 `ready: true`를 확인한 뒤, `uv run sns-recommend baseline --user 1 --strategy popular`로 인기순도 비교해요.
+이 단원부터 Redis에 추천 ID를 저장합니다. 아래 공통 API 실행과 조회로 `ready: true`를 확인한 뒤, `uv run sns-recommend baseline --user 7 --strategy popular`로 인기순도 비교해요.
 
 **API 실행과 조회 (2단원부터 공통)**
 
@@ -69,7 +69,7 @@ uv run uvicorn sns_recommend.api:app --port 8001
 실습 터미널에서 조회해요. Windows PowerShell에서는 `curl`을 `curl.exe`로 바꿉니다.
 
 ```sh
-curl -fsS -H "X-Internal-Token: course-local-token" http://localhost:8001/internal/feeds/1
+curl -fsS -H "X-Internal-Token: course-local-token" http://localhost:8001/internal/feeds/7
 ```
 
 응답의 `post_ids`가 추천 순서입니다. `next_cursor`가 있으면 같은 주소에 `?cursor=값`을 붙여 다음 페이지를 조회해요.
@@ -92,7 +92,7 @@ uv run sns-recommend relay
 uv run sns-recommend status
 ```
 
-처음에는 `delivered: 1`, 두 번째는 `delivered: 0`입니다. 새 글까지 포함해 게시글은 201개예요. 현재 명령은 Python의 `source_demo`를 사용하며 Spring Outbox와 별도입니다.
+처음에는 `delivered: 1`, 두 번째는 `delivered: 0`입니다. 새 글까지 포함해 게시글은 241개예요. 현재 명령은 Python의 `source_demo`를 사용하며 Spring Outbox와 별도입니다.
 
 좋아요 행동도 API로 전달합니다. 응답에서 `accepted: true`를 확인해요.
 
@@ -102,7 +102,7 @@ import uuid, httpx
 response = httpx.post(
     'http://localhost:8001/internal/events',
     headers={'X-Internal-Token': 'course-local-token'},
-    json=dict(event_id=str(uuid.uuid4()), kind='like', user_id=1, post_id=1001),
+    json=dict(event_id=str(uuid.uuid4()), kind='like', user_id=7, post_id=1001),
 )
 response.raise_for_status()
 print(response.json())
@@ -129,8 +129,8 @@ git switch part-5-retrieval
 uv sync --locked
 docker compose up -d --wait
 uv run sns-recommend init
-uv run sns-recommend embedding --user 1
-uv run sns-recommend embedding --user 2
+uv run sns-recommend embedding --user 7
+uv run sns-recommend embedding --user 8
 ```
 
 관심사가 다른 사용자의 `post_ids`를 비교합니다. API를 실행하면 저장된 목록도 조회할 수 있어요.
@@ -141,7 +141,7 @@ uv run sns-recommend embedding --user 2
 git switch part-6-reranking
 uv sync --locked
 docker compose up -d --wait
-uv run sns-recommend generate --user 1
+uv run sns-recommend generate --user 7
 ```
 
 후보 ID 검증과 다양성 조정을 거친 순위가 저장됩니다. 실제 Gemini 호출은 [모델 설정](../sns-recommend/README.md#모델-설정)을 따릅니다.
@@ -154,8 +154,8 @@ uv sync --locked
 docker compose up -d --wait
 uv run python -m sns_recommend.worker --once
 uv run python -m sns_recommend.worker --once
-uv run sns-recommend graph --user 1
-uv run sns-recommend graph --user 1 --pause-after-rerank
+uv run sns-recommend graph --user 7
+uv run sns-recommend graph --user 7 --pause-after-rerank
 uv run python -m sns_recommend.worker --once
 ```
 
@@ -179,8 +179,8 @@ git switch part-9-resilience
 uv sync --locked
 docker compose up -d --wait
 uv run sns-recommend init
-uv run sns-recommend graph --user 1
-uv run sns-recommend benchmark --user 1
+uv run sns-recommend graph --user 7
+uv run sns-recommend benchmark --user 7
 uv run sns-recommend schedule
 uv run python -m sns_recommend.worker --once
 ```
