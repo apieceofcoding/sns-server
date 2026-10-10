@@ -97,7 +97,7 @@ RUN_INTEGRATION=1 uv run pytest -q
 | 브랜치 | 추가하는 것 |
 |---|---|
 | main | 시작 안내 |
-| part-1 | uv, Compose와 합성 데이터 |
+| part-1-environment | uv, Compose와 합성 데이터 |
 | part-2-feed-api | FastAPI, Redis 목록과 커서 |
 | part-3-events | Outbox, 이벤트와 작업 |
 | part-4-indexing | LangChain Document와 임베딩 |
@@ -112,4 +112,3 @@ RUN_INTEGRATION=1 uv run pytest -q
 [챕터 자료](../materials/README.md), [Spring SNS 연동 예제](integrations/sns-app/README.md), [서비스 설계](../materials/support/design/sns-recommend-service.md).
 
 `seed` 실행 시 테이블도 준비합니다. DB 서버는 먼저 실행해 주세요. 기존 데이터는 유지하고 없는 ID만 추가합니다.
-
