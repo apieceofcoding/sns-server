@@ -5,6 +5,7 @@ from typing import Annotated
 from pydantic import BaseModel, StrictInt, Field
 from langchain_core.prompts import ChatPromptTemplate
 from .config import settings
+from . import source
 from .db import connection
 from .feed import publish
 from .jobs import allocate_generation
@@ -27,11 +28,10 @@ def prepare_inputs(user_id):
     update_profile(user_id)
     candidates = retrieve_candidates(user_id)
     with connection() as conn:
-        user = conn.execute("SELECT interests,version FROM users WHERE id=%s",(user_id,)).fetchone()
         history = conn.execute("""SELECT kind,post_id FROM events WHERE user_id=%s
             AND occurred_at<=now() AND kind IN ('click','like','not_interested')
             ORDER BY occurred_at DESC LIMIT 10""",(user_id,)).fetchall()
-    return {"user_id":user_id, "interests":user["interests"],"user_version":user["version"],
+    return {"user_id":user_id, "interests":source.interests(user_id) or "",
             "history":history,"candidates":candidates,"prompt_version":PROMPT_VERSION,
             "model":settings().rerank_model,"mode":settings().model_mode}
 
@@ -86,7 +86,7 @@ def diversify(candidates, ids):
         previous = lookup[result[-1]] if result else None
         next_id = next((i for i in remaining if previous is None or
                         (lookup[i]["author_id"] != previous["author_id"] and
-                         lookup[i]["topic"] != previous["topic"])), None)
+                         ("topic" not in previous or lookup[i].get("topic") != previous["topic"]))), None)
         if next_id is None:
             next_id = next((i for i in remaining if previous is None or
                             lookup[i]["author_id"] != previous["author_id"]),remaining[0])
