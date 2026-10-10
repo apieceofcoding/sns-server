@@ -19,6 +19,7 @@ def main():
         initialize()
         result = {"schema": "ready"}
     elif args.command == "seed":
+        initialize()
         result = seed()
     elif args.command == "baseline":
         result = baseline(args.user, args.strategy)
