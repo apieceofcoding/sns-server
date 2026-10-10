@@ -130,6 +130,8 @@ curl -fsS -H "X-Internal-Token: course-local-token" http://localhost:8001/intern
 ```sh
 git switch part-3-events
 uv sync --locked
+# 추천 DB 추가 실행: 행동과 작업, 4단원부터 벡터 저장
+docker compose up -d --wait
 uv run sns-recommend init
 uv run sns-recommend source-post --post 1001
 ```
@@ -140,7 +142,7 @@ uv run sns-recommend source-post --post 1001
 uv run sns-recommend relay
 ```
 
-`delivered: 1`을 확인해요. 이후 `init`은 필요한 DB 구조만 추가하며 데이터를 다시 만들지 않습니다.
+`delivered: 1`을 확인해요. 게시글은 SNS DB에만 있고, 이벤트는 글 ID와 버전만 전달합니다. 이후 `init`은 필요한 DB 구조만 추가하며 데이터를 다시 만들지 않아요.
 
 ### part-4. 게시글 색인
 

@@ -1,13 +1,14 @@
 name: sns-recommend-course
 services:
+  # Vectors, events and jobs. Accounts and posts stay in the SNS app database (5432).
   db:
-    image: pgvector/pgvector:pg17
+    image: pgvector/pgvector:pg18
     environment:
       POSTGRES_USER: recommend
       POSTGRES_PASSWORD: recommend
       POSTGRES_DB: recommend
     ports: ["127.0.0.1:55432:5432"]
-    volumes: ["recommend-db:/var/lib/postgresql/data"]
+    volumes: ["recommend-index-pg18:/var/lib/postgresql"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U recommend -d recommend"]
       interval: 2s
@@ -22,4 +23,4 @@ services:
       timeout: 3s
       retries: 30
 volumes:
-  recommend-db:
+  recommend-index-pg18:
