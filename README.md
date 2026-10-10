@@ -26,6 +26,6 @@ uv run sns-recommend status
 
 `part-1-environment → part-2-feed-api → … → part-9-resilience` 순서입니다. `main`은 현재 완성 코드예요. 챕터를 바꾸면 해당 폴더에서 `uv sync --locked`와 `uv run sns-recommend seed`를 실행합니다.
 
-각 브랜치의 SNS 앱은 모노레포 전환 시점 코드입니다. [Spring 연결 예제](sns-recommend/integrations/sns-app/README.md)는 해당 파일이 있는 후반 챕터와 `main`에서 확인해요. 실제 SNS 원본과 추천 DB의 ID도 맞춰야 합니다.
+각 브랜치의 SNS 앱은 모노레포 전환 시점 코드입니다. [Spring 연결 예제](https://github.com/apieceofcoding/sns-server/blob/main/sns-recommend/integrations/sns-app/README.md)는 해당 파일이 있는 후반 챕터와 `main`에서 확인해요. 실제 SNS 원본과 추천 DB의 ID도 맞춰야 합니다.
 
 강사용 문서, 슬라이드와 대본은 이 저장소에 포함하지 않습니다.
