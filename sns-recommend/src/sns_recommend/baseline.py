@@ -1,14 +1,16 @@
-from .jobs import allocate_generation
+from . import source
 from .db import connection
 from .feed import publish
+from .jobs import allocate_generation
 
 
 def baseline(user_id, strategy="latest"):
     if strategy not in {"latest", "popular"}:
         raise ValueError("unsupported baseline")
-    order = "created_at DESC, id DESC" if strategy == "latest" else "likes DESC, id DESC"
+    if not source.user_exists(user_id):
+        raise LookupError("unknown user")
+    ids = source.ordered_post_ids(strategy)
     with connection() as conn:
-        posts = conn.execute(f"SELECT id FROM posts WHERE NOT deleted ORDER BY {order}").fetchall()
         generation = allocate_generation(conn, user_id)
-    publish(user_id, [p["id"] for p in posts], strategy, generation)
-    return {"user_id": user_id, "strategy": strategy, "count": len(posts)}
+    publish(user_id, ids, strategy, generation)
+    return {"user_id": user_id, "strategy": strategy, "count": len(ids)}

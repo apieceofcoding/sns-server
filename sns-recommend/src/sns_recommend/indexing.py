@@ -1,27 +1,38 @@
 from langchain_core.documents import Document
+from . import source
 from .db import connection
 from .embeddings import CachedEmbeddings, space, vector_sql
 from .config import settings
 
 
 def index_posts(post_ids=None):
+    posts = source.posts_to_index(post_ids)
+    ids = [p["id"] for p in posts]
     with connection() as conn:
-        if post_ids:
-            posts = conn.execute("SELECT * FROM posts WHERE id=ANY(%s)", (post_ids,)).fetchall()
-        else:
-            posts = conn.execute("""SELECT * FROM posts WHERE NOT deleted AND
-                (embedding_version IS DISTINCT FROM version OR embedding_space IS DISTINCT FROM %s)
-                ORDER BY id""", (space(),)).fetchall()
-    active = [p for p in posts if not p["deleted"]]
+        rows = conn.execute("""SELECT post_id,content_version FROM post_embeddings
+            WHERE space=%s AND post_id=ANY(%s)""", (space(), ids)).fetchall()
+    indexed = {r["post_id"]: r["content_version"] for r in rows}
+    active = [p for p in posts if p["visible"] and indexed.get(p["id"]) != p["version"]]
     if settings().model_mode in {"live","record"}:
         active = active[:20]  # Call again for the next small batch.
     documents = [Document(page_content=p["body"], metadata={"id":p["id"],"version":p["version"]})
                  for p in active]
     vectors = CachedEmbeddings().embed_documents([d.page_content for d in documents]) if documents else []
+    # A post edited or deleted during the model call keeps no vector. Its own event indexes it.
+    current = source.current_versions([p["id"] for p in active])
+    stored = 0
     with connection() as conn:
         for post, vector in zip(active, vectors, strict=True):
-            conn.execute("""UPDATE posts SET embedding=%s::vector,embedding_version=%s,
-                embedding_space=%s WHERE id=%s AND version=%s AND NOT deleted""",
-                         (vector_sql(vector), post["version"], space(), post["id"], post["version"]))
-        conn.execute("UPDATE posts SET embedding=NULL,embedding_version=NULL WHERE deleted")
-    return {"indexed":len(active), "mode":settings().model_mode, "space":space()}
+            if current.get(post["id"]) != post["version"]:
+                continue
+            conn.execute("""INSERT INTO post_embeddings(post_id,content_version,space,embedding)
+                VALUES (%s,%s,%s,%s::vector) ON CONFLICT(post_id) DO UPDATE SET
+                content_version=EXCLUDED.content_version,space=EXCLUDED.space,
+                embedding=EXCLUDED.embedding
+                WHERE post_embeddings.content_version<=EXCLUDED.content_version""",
+                         (post["id"], post["version"], space(), vector_sql(vector)))
+            stored += 1
+        visible = {p["id"] for p in posts if p["visible"]}
+        gone = [i for i in {*ids, *(post_ids or [])} if i not in visible]
+        conn.execute("DELETE FROM post_embeddings WHERE post_id=ANY(%s)", (gone,))
+    return {"indexed":stored, "mode":settings().model_mode, "space":space()}

@@ -7,17 +7,23 @@ from .db import connection
 
 
 def allocate_generation(conn, user_id):
-    row = conn.execute("""UPDATE users SET generation=GREATEST(generation+1,%s)
-        WHERE id=%s RETURNING generation""", (int(time.time()*1000000), user_id)).fetchone()
-    if not row:
-        raise LookupError("unknown user")
+    row = conn.execute("""INSERT INTO profiles(user_id,generation) VALUES (%s,%s)
+        ON CONFLICT(user_id) DO UPDATE SET
+        generation=GREATEST(profiles.generation+1,EXCLUDED.generation) RETURNING generation""",
+                       (user_id, int(time.time()*1000000))).fetchone()
     return row["generation"]
+
+
+def current_generation(conn, user_id):
+    # The row lock serializes enqueue and publish for the same user.
+    conn.execute("INSERT INTO profiles(user_id) VALUES (%s) ON CONFLICT DO NOTHING", (user_id,))
+    return conn.execute("SELECT generation FROM profiles WHERE user_id=%s FOR UPDATE",
+                        (user_id,)).fetchone()["generation"]
 
 
 def enqueue(conn, kind, user_id=None, post_id=None, payload=None):
     if kind == "build":
-        # Serialize enqueue and publish against the same user row.
-        conn.execute("SELECT id FROM users WHERE id=%s FOR UPDATE", (user_id,)).fetchone()
+        current_generation(conn, user_id)
         existing = conn.execute("""SELECT * FROM jobs WHERE kind='build'
             AND user_id=%s AND status='pending'""", (user_id,)).fetchone()
         if existing:

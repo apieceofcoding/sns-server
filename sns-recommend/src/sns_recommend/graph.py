@@ -6,7 +6,7 @@ from .config import settings
 from .db import connection
 from .feed import publish
 from .ranking import prepare_inputs, rerank_candidates, validate_ranking, diversify
-from .jobs import enqueue, claim, finish
+from .jobs import enqueue, claim, current_generation, finish
 
 GRAPH_VERSION = "sns-feed-v1"
 
@@ -76,11 +76,10 @@ def make_graph(checkpointer, pause=False):
     def publish_feed(state):
         guard(state)
         with connection() as conn:
-            user = conn.execute("SELECT generation FROM users WHERE id=%s FOR UPDATE",
-                                (state["user_id"],)).fetchone()
+            generation = current_generation(conn, state["user_id"])
             job = conn.execute("SELECT * FROM jobs WHERE id=%s FOR UPDATE",
                                (state["job_id"],)).fetchone()
-            if (user["generation"]!=state["generation"] or str(job["owner"])!=state["owner"]
+            if (generation!=state["generation"] or str(job["owner"])!=state["owner"]
                     or job["status"]!="running" or job["lease_until"]<=datetime.now(timezone.utc)
                     or datetime.now(timezone.utc).timestamp()-state["created_at"]>settings().snapshot_ttl):
                 return {"published":False}

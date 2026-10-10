@@ -1,6 +1,6 @@
 import argparse
 import json
-from .db import initialize, connection
+from .db import initialize, source_connection
 from .seed import seed
 from .baseline import baseline
 from .source_demo import change_post, relay
@@ -40,7 +40,7 @@ def main():
     elif args.command == "graph":
         result = start_graph(args.user,args.pause_after_rerank)
     else:
-        with connection() as conn:
+        with source_connection() as conn:
             result = {"posts": conn.execute("SELECT count(*) AS n FROM posts").fetchone()["n"],
                       "users": conn.execute("SELECT count(*) AS n FROM users").fetchone()["n"]}
     print(json.dumps(result, ensure_ascii=False, default=str))
