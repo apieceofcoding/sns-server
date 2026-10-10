@@ -4,9 +4,9 @@ LangChain Document와 임베딩 인터페이스로 글을 준비하고 pgvector�
 
 ```sh
 uv sync --locked
-uv run sns-rec init
-uv run sns-rec seed
-uv run sns-rec index
+uv run sns-recommend init
+uv run sns-recommend seed
+uv run sns-recommend index
 uv run python -m sns_recommend.worker --once
 uv run pytest
 ```
