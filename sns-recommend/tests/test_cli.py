@@ -17,14 +17,14 @@ def test_seed_prepares_schema_before_inserting(
 
     def seed() -> dict[str, int]:
         calls.append("seed")
-        return {"users": 3, "posts": 200}
+        return {"users": 9, "posts": 240}
 
     monkeypatch.setattr("sys.argv", ["sns-recommend", "seed"])
     monkeypatch.setattr(cli, "initialize", initialize)
     monkeypatch.setattr(cli, "seed", seed)
     cli.main()
     assert calls == ["schema", "seed"]
-    assert json.loads(capsys.readouterr().out) == {"users": 3, "posts": 200}
+    assert json.loads(capsys.readouterr().out) == {"users": 9, "posts": 240}
 
 
 def test_failed_schema_preparation_does_not_seed(monkeypatch: pytest.MonkeyPatch) -> None:

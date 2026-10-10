@@ -17,7 +17,7 @@ from sns_recommend.pipelines.generation import prepare_inputs
 from sns_recommend.providers.rerank import ranking_strategy, rerank_candidates
 from sns_recommend.recommenders.ranking import diversify, validate_ranking
 from sns_recommend.storage.feeds import publish
-from sns_recommend.storage.jobs import claim, enqueue, finish
+from sns_recommend.storage.jobs import claim, current_generation, enqueue, finish
 from sns_recommend.storage.postgres import connection
 
 GRAPH_VERSION = "sns-feed-v1"
@@ -102,16 +102,13 @@ def make_graph(
     def publish_feed(state: FeedState) -> FeedState:
         guard(state)
         with connection() as conn:
-            user = conn.execute(
-                "SELECT generation FROM users WHERE id=%s FOR UPDATE", (state["user_id"],)
-            ).fetchone()
+            generation = current_generation(conn, state["user_id"])
             job = conn.execute(
                 "SELECT * FROM jobs WHERE id=%s FOR UPDATE", (state["job_id"],)
             ).fetchone()
             if (
-                user is None
-                or job is None
-                or user["generation"] != state["generation"]
+                job is None
+                or generation != state["generation"]
                 or str(job["owner"]) != state["owner"]
                 or job["status"] != "running"
                 or job["lease_until"] <= datetime.now(UTC)

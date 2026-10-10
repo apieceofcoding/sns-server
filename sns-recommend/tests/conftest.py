@@ -21,10 +21,17 @@ def infra(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         pytest.skip("set RUN_INTEGRATION=1 for isolated local database tests")
     original = settings()
     name = "rec_test_" + uuid4().hex
-    admin = make_conninfo(original.database_url, dbname="postgres")
-    with psycopg.connect(admin, autocommit=True) as conn:
-        conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
-    monkeypatch.setenv("DATABASE_URL", make_conninfo(original.database_url, dbname=name))
+    # One throwaway database on each server: SNS originals and recommendation data.
+    servers = {
+        "SOURCE_DATABASE_URL": original.source_database_url,
+        "DATABASE_URL": original.database_url,
+    }
+    admins = [make_conninfo(url, dbname="postgres") for url in servers.values()]
+    for admin in admins:
+        with psycopg.connect(admin, autocommit=True) as conn:
+            conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
+    for variable, url in servers.items():
+        monkeypatch.setenv(variable, make_conninfo(url, dbname=name))
     monkeypatch.setenv("REDIS_URL", original.redis_url.rsplit("/", 1)[0] + "/15")
     monkeypatch.setenv("MODEL_MODE", "fixture")
     settings.cache_clear()
@@ -43,5 +50,8 @@ def infra(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
                 r.delete(*keys)
         finally:
             settings.cache_clear()
-            with psycopg.connect(admin, autocommit=True) as conn:
-                conn.execute(sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(name)))
+            for admin in admins:
+                with psycopg.connect(admin, autocommit=True) as conn:
+                    conn.execute(
+                        sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(name))
+                    )

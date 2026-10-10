@@ -17,13 +17,22 @@ MAX_ATTEMPTS = 3
 
 def allocate_generation(conn: DatabaseConnection, user_id: int) -> int:
     row = conn.execute(
-        """UPDATE users SET generation=GREATEST(generation+1,%s)
-        WHERE id=%s RETURNING generation""",
-        (int(time.time() * 1000000), user_id),
+        """INSERT INTO profiles(user_id,generation) VALUES (%s,%s)
+        ON CONFLICT(user_id) DO UPDATE SET
+        generation=GREATEST(profiles.generation+1,EXCLUDED.generation) RETURNING generation""",
+        (user_id, int(time.time() * 1000000)),
     ).fetchone()
-    if not row:
-        raise LookupError("unknown user")
+    assert row is not None  # INSERT/UPDATE RETURNING always returns a row.
     return row["generation"]
+
+
+def current_generation(conn: DatabaseConnection, user_id: int) -> int | None:
+    # The row lock serializes enqueue and publish for the same user.
+    conn.execute("INSERT INTO profiles(user_id) VALUES (%s) ON CONFLICT DO NOTHING", (user_id,))
+    row = conn.execute(
+        "SELECT generation FROM profiles WHERE user_id=%s FOR UPDATE", (user_id,)
+    ).fetchone()
+    return row["generation"] if row else None
 
 
 def enqueue(
@@ -37,8 +46,7 @@ def enqueue(
     if kind == "build":
         if user_id is None:
             raise ValueError("build job requires user_id")
-        # Serialize enqueue and publish against the same user row.
-        conn.execute("SELECT id FROM users WHERE id=%s FOR UPDATE", (user_id,)).fetchone()
+        current_generation(conn, user_id)
         existing = conn.execute(
             """SELECT * FROM jobs WHERE kind='build'
             AND user_id=%s AND status='pending'""",

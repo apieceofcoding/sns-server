@@ -12,7 +12,7 @@ from sns_recommend.pipelines.generation import generate
 from sns_recommend.pipelines.graph import start_graph
 from sns_recommend.recommenders.baseline import baseline
 from sns_recommend.recommenders.retrieval import generate_embedding
-from sns_recommend.storage.postgres import connection, initialize
+from sns_recommend.storage.postgres import initialize, source_connection
 from sns_recommend.worker.scheduler import schedule_active
 
 
@@ -70,7 +70,7 @@ def main() -> None:
     elif args.command == "schedule":
         result = schedule_active()
     else:
-        with connection() as conn:
+        with source_connection() as conn:
             posts = conn.execute("SELECT count(*) AS n FROM posts").fetchone()
             users = conn.execute("SELECT count(*) AS n FROM users").fetchone()
             assert posts is not None and users is not None  # COUNT always returns a row.

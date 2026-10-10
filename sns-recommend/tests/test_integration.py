@@ -14,9 +14,17 @@ from langgraph.checkpoint.postgres import PostgresSaver
 from sns_recommend.api import app
 from sns_recommend.core.config import settings
 from sns_recommend.core.measurement import CallLimitExceeded, measured_call
-from sns_recommend.core.types import DatabaseRow, PausedResult, RankingInput, RankingResult
+from sns_recommend.core.types import (
+    DatabaseConnection,
+    DatabaseRow,
+    PausedResult,
+    RankingInput,
+    RankingResult,
+)
 from sns_recommend.data.events import Event, accept_event
 from sns_recommend.data.indexing import index_posts
+from sns_recommend.data.seed import READERS
+from sns_recommend.data.source_demo import change_post
 from sns_recommend.pipelines.graph import make_graph, run_graph, start_graph
 from sns_recommend.providers.embeddings import (
     CachedEmbeddings,
@@ -28,68 +36,129 @@ from sns_recommend.providers.embeddings import (
 from sns_recommend.recommenders.retrieval import retrieve_candidates, update_profile
 from sns_recommend.storage.feeds import publish, read_feed
 from sns_recommend.storage.jobs import claim, enqueue, finish, retry
-from sns_recommend.storage.postgres import connection
+from sns_recommend.storage.postgres import connection, source_connection
+from sns_recommend.worker.runner import run_one
 
 pytestmark = pytest.mark.integration
+READER = 7  # Seed reader interested in backend and AI. Readers write no posts.
+HEADERS = {"X-Internal-Token": "course-local-token"}
 
 
 def prepare() -> None:
     index_posts()
-    update_profile(1)
+    update_profile(READER)
 
 
-def test_event_duplicate_and_old_version_are_not_reapplied(infra: None) -> None:
-    event = Event(
-        event_id=uuid4(),
-        kind="post.updated",
-        post_id=1,
-        version=3,
-        payload={"body": "Python updated", "author_id": 10, "topic": "backend"},
-    )
+def count(conn: DatabaseConnection, table: str) -> int:
+    row = conn.execute(f"SELECT count(*) AS n FROM {table}").fetchone()
+    assert row is not None  # COUNT always returns a row.
+    return cast(int, row["n"])
+
+
+def test_event_duplicate_and_old_version_do_not_queue_work(infra: None) -> None:
+    event = Event(event_id=uuid4(), kind="post.updated", post_id=1, version=3)
     assert accept_event(event)["accepted"]
     assert accept_event(event)["duplicate"]
     accept_event(event.model_copy(update={"event_id": uuid4(), "version": 2}))
     with connection() as conn:
-        assert (
-            cast(DatabaseRow, conn.execute("SELECT version FROM posts WHERE id=1").fetchone())[
-                "version"
-            ]
-            == 3
-        )
-        assert (
-            cast(DatabaseRow, conn.execute("SELECT count(*) AS n FROM jobs").fetchone())["n"] == 1
-        )
+        assert count(conn, "jobs") == 1
+
+
+def test_recommendation_database_keeps_no_copy_of_posts(infra: None) -> None:
+    assert index_posts()["indexed"] == 240
+    assert index_posts()["indexed"] == 0
+    with connection() as conn:
+        tables = conn.execute(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema='public'"
+        ).fetchall()
+        columns = conn.execute(
+            """SELECT column_name FROM information_schema.columns
+            WHERE table_name='post_embeddings' ORDER BY column_name"""
+        ).fetchall()
+        assert count(conn, "post_embeddings") == 240
+    assert not {"users", "posts"} & {t["table_name"] for t in tables}
+    assert [c["column_name"] for c in columns] == [
+        "content_version",
+        "embedding",
+        "post_id",
+        "space",
+    ]
 
 
 def test_source_outbox_commits_with_post(infra: None) -> None:
-    from sns_recommend.data.source_demo import change_post
+    assert change_post(1001, "Python")["version"] == 1
+    assert change_post(1001, "Python FastAPI")["version"] == 2
+    with source_connection() as conn:
+        post = conn.execute("SELECT content,content_version FROM posts WHERE id=1001").fetchone()
+        events = conn.execute(
+            "SELECT event FROM recommendation_outbox ORDER BY created_at"
+        ).fetchall()
+        # The app's next generated ID must not collide with the explicit demo ID.
+        created = conn.execute(
+            """INSERT INTO posts(content,user_id,created_at,modified_at)
+            VALUES ('next',1,now(),now()) RETURNING id"""
+        ).fetchone()
+    assert post == {"content": "Python FastAPI", "content_version": 2}
+    assert [(e["event"]["post_id"], e["event"]["version"]) for e in events] == [
+        (1001, 1),
+        (1001, 2),
+    ]
+    assert all("body" not in json.dumps(e["event"]) for e in events)
+    assert created is not None and created["id"] > 1001
 
-    change_post(1001, "Python")
+
+def test_post_event_indexes_the_current_body_from_sns(infra: None) -> None:
+    first = change_post(1001, "Python 백엔드")
+    accept_event(Event(event_id=uuid4(), kind="post.updated", post_id=1001, version=1))
+    assert run_one()
+    change_post(1001, "제주 여행 사진")
+    # A late copy of the old event adds no work. The new event indexes the new body.
+    accept_event(Event(event_id=uuid4(), kind="post.updated", post_id=1001, version=1))
+    assert not run_one()
+    accept_event(Event(event_id=uuid4(), kind="post.updated", post_id=1001, version=2))
+    assert run_one()
     with connection() as conn:
-        assert (
-            cast(
-                DatabaseRow, conn.execute("SELECT count(*) AS n FROM source_demo.posts").fetchone()
-            )["n"]
-            == 1
-        )
-        assert (
-            cast(
-                DatabaseRow, conn.execute("SELECT count(*) AS n FROM source_demo.outbox").fetchone()
-            )["n"]
-            == 1
-        )
+        row = conn.execute(
+            "SELECT content_version,embedding::text FROM post_embeddings WHERE post_id=1001"
+        ).fetchone()
+    assert first["version"] == 1 and row is not None and row["content_version"] == 2
+    expected = FixtureEmbeddings().embed_query("제주 여행 사진")
+    assert json.loads(row["embedding"]) == pytest.approx(expected, abs=1e-6)
+
+
+def test_post_edited_during_model_call_keeps_no_stale_vector(
+    infra: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    change_post(1001, "Python 백엔드")
+    original = CachedEmbeddings.embed_documents
+
+    def edit_while_embedding(self: CachedEmbeddings, texts: list[str]) -> list[list[float]]:
+        change_post(1001, "제주 여행 사진")
+        return original(self, texts)
+
+    monkeypatch.setattr(CachedEmbeddings, "embed_documents", edit_while_embedding)
+    assert index_posts([1001])["indexed"] == 0
+    with connection() as conn:
+        assert count(conn, "post_embeddings") == 0
 
 
 def test_exclusions_delete_and_stale_vectors(infra: None) -> None:
     prepare()
-    accept_event(Event(event_id=uuid4(), kind="impression", user_id=1, post_id=200))
-    accept_event(Event(event_id=uuid4(), kind="post.deleted", post_id=195, version=2))
+    accept_event(Event(event_id=uuid4(), kind="impression", user_id=READER, post_id=200))
+    with source_connection() as conn:
+        conn.execute(
+            "UPDATE posts SET deleted_at=now(),content_version=content_version+1 WHERE id=195"
+        )
+        conn.execute(
+            "UPDATE posts SET content='edited',content_version=content_version+1 WHERE id=190"
+        )
+    candidates = {p["id"]: p for p in retrieve_candidates(READER, k=50)}
+    assert 200 not in candidates and 195 not in candidates
+    assert candidates[190]["similarity"] is None
+    index_posts([190, 195])
+    assert {p["id"]: p for p in retrieve_candidates(READER, k=50)}[190]["similarity"] is not None
     with connection() as conn:
-        conn.execute("UPDATE posts SET version=2 WHERE id=190")
-    ids = [p["id"] for p in retrieve_candidates(1)]
-    assert 200 not in ids and 195 not in ids
-    stale = next((p for p in retrieve_candidates(1) if p["id"] == 190), None)
-    assert stale is None or stale["similarity"] is None
+        assert not conn.execute("SELECT 1 FROM post_embeddings WHERE post_id=195").fetchone()
 
 
 def test_old_snapshot_stays_stable_and_publish_is_idempotent(infra: None) -> None:
@@ -117,14 +186,14 @@ def test_graph_resumes_without_repeating_saved_rerank(
         return original(inputs)
 
     monkeypatch.setattr(graph_module, "rerank_candidates", count)
-    paused = cast(PausedResult, start_graph(1, pause=True))
+    paused = cast(PausedResult, start_graph(READER, pause=True))
     assert paused["next"] == "validate"
     job = claim(("build",), job_id=paused["job_id"])
     assert job is not None
     result = run_graph(job)
     assert result["published"]
     assert len(calls) == 1
-    assert read_feed(1)["snapshot_id"] == paused["job_id"]
+    assert read_feed(READER)["snapshot_id"] == paused["job_id"]
 
 
 def test_invalid_rank_uses_rule_branch(infra: None, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -133,7 +202,7 @@ def test_invalid_rank_uses_rule_branch(infra: None, monkeypatch: pytest.MonkeyPa
         "sns_recommend.pipelines.graph.rerank_candidates",
         lambda inputs: {"ordered_ids": [99999], "mode": "fixture"},
     )
-    result = start_graph(1)
+    result = start_graph(READER)
     assert result["strategy"] == "rules_fallback"
     assert result["published"]
     assert 99999 not in result["post_ids"]
@@ -141,27 +210,34 @@ def test_invalid_rank_uses_rule_branch(infra: None, monkeypatch: pytest.MonkeyPa
 
 def test_new_generation_fences_old_graph(infra: None) -> None:
     prepare()
-    old = start_graph(1, pause=True)
+    old = start_graph(READER, pause=True)
     with connection() as conn:
-        enqueue(conn, "build", user_id=1)
+        enqueue(conn, "build", user_id=READER)
     resumed = claim(("build",), job_id=old["job_id"])
     assert resumed is not None
     assert not run_graph(resumed)["published"]
-    assert not read_feed(1)["ready"]
+    assert not read_feed(READER)["ready"]
 
 
 def test_read_api_does_not_call_model(infra: None, monkeypatch: pytest.MonkeyPatch) -> None:
-    publish(1, [1, 2, 3], "latest", 1)
+    publish(READER, [1, 2, 3], "latest", 1)
 
     def forbidden(*args: object) -> Never:
         raise AssertionError("read path called model")
 
     monkeypatch.setattr("sns_recommend.pipelines.graph.rerank_candidates", forbidden)
-    result = TestClient(app).get(
-        "/internal/feeds/1", headers={"X-Internal-Token": "course-local-token"}
-    )
+    result = TestClient(app).get(f"/internal/feeds/{READER}", headers=HEADERS)
     assert result.status_code == 200
     assert result.json()["post_ids"] == [1, 2, 3]
+
+
+def test_read_api_skips_posts_deleted_in_sns_and_rejects_unknown_users(infra: None) -> None:
+    publish(READER, [1, 2, 3], "latest", 1)
+    with source_connection() as conn:
+        conn.execute("UPDATE posts SET deleted_at=now() WHERE id=2")
+    client = TestClient(app)
+    assert client.get(f"/internal/feeds/{READER}", headers=HEADERS).json()["post_ids"] == [1, 3]
+    assert client.get("/internal/feeds/999", headers=HEADERS).status_code == 404
 
 
 def test_budget_is_enforced_before_provider_call(
@@ -181,7 +257,7 @@ def test_budget_is_enforced_before_provider_call(
 def test_lease_ownership_blocks_late_worker(infra: None) -> None:
     prepare()
     with connection() as conn:
-        job_id = enqueue(conn, "build", user_id=1)
+        job_id = enqueue(conn, "build", user_id=READER)
     old = claim(("build",), job_id=job_id)
     assert old is not None
     with connection() as conn:
@@ -193,7 +269,7 @@ def test_lease_ownership_blocks_late_worker(infra: None) -> None:
 def test_lost_owner_cannot_change_saved_checkpoint(infra: None) -> None:
     prepare()
     with connection() as conn:
-        job_id = enqueue(conn, "build", user_id=1)
+        job_id = enqueue(conn, "build", user_id=READER)
     old = claim(("build",), job_id=job_id)
     assert old is not None
     assert cast(PausedResult, run_graph(old, pause=True))["paused"]
@@ -286,47 +362,65 @@ def test_profile_uses_recent_actions_instead_of_largest_post_ids(infra: None) ->
     with connection() as conn:
         for i in range(7):
             conn.execute(
-                """UPDATE posts SET embedding=%s::vector,embedding_space=%s,embedding_version=version
-                WHERE id=%s""",
-                (vector_sql(recent if i < 5 else old), space(), i + 1),
+                """INSERT INTO post_embeddings(post_id,content_version,space,embedding)
+                VALUES (%s,1,%s,%s::vector)""",
+                (i + 1, space(), vector_sql(recent if i < 5 else old)),
             )
-            accept_event(
-                Event(
-                    event_id=uuid4(),
-                    kind="like",
-                    user_id=1,
-                    post_id=i + 1,
-                    occurred_at=now - timedelta(minutes=i + 1),
-                )
+    for i in range(7):
+        accept_event(
+            Event(
+                event_id=uuid4(),
+                kind="like",
+                user_id=READER,
+                post_id=i + 1,
+                occurred_at=now - timedelta(minutes=i + 1),
             )
-    update_profile(1)
+        )
+    update_profile(READER)
     with connection() as conn:
-        row = conn.execute("SELECT interests,embedding::text FROM users WHERE id=1").fetchone()
+        row = conn.execute(
+            "SELECT embedding::text FROM profiles WHERE user_id=%s", (READER,)
+        ).fetchone()
     assert row is not None
-    base = FixtureEmbeddings().embed_query(row["interests"])
+    base = FixtureEmbeddings().embed_query(READERS[READER])
     expected = normalize([0.7 * x + 0.3 * y for x, y in zip(base, recent, strict=True)])
     assert json.loads(row["embedding"]) == pytest.approx(expected, abs=1e-7)
 
 
 def test_stale_user_vector_is_not_used_for_similarity(infra: None) -> None:
     prepare()
-    with connection() as conn:
-        conn.execute("UPDATE users SET version=version+1 WHERE id=1")
-    candidates = retrieve_candidates(1)
+    with source_connection() as conn:
+        conn.execute("UPDATE user_interests SET interests='음악 감상' WHERE user_id=%s", (READER,))
+    candidates = retrieve_candidates(READER)
     assert candidates
     assert all(p["similarity"] is None and "embedding" not in p["sources"] for p in candidates)
 
 
+def test_new_account_without_interests_gets_latest_and_popular_only(infra: None) -> None:
+    index_posts()
+    with source_connection() as conn:
+        conn.execute(
+            """INSERT INTO users(id,username,created_at,modified_at)
+            VALUES (10,'signed-up-in-app',now(),now())"""
+        )
+    update_profile(10)
+    candidates = retrieve_candidates(10)
+    assert candidates
+    assert all(p["similarity"] is None for p in candidates)
+    with pytest.raises(LookupError, match="unknown user"):
+        retrieve_candidates(999)
+
+
 def test_candidate_merge_keeps_fresh_and_popular_posts(infra: None) -> None:
     prepare()
-    with connection() as conn:
+    with source_connection() as conn:
         for post_id, likes in [(1001, 0), (1002, 1_000_000)]:
             conn.execute(
-                """INSERT INTO posts(id,author_id,body,topic,created_at,likes)
-                VALUES (%s,10,'unindexed','new',now(),%s)""",
+                """INSERT INTO posts(id,user_id,content,like_count,created_at,modified_at)
+                VALUES (%s,1,'unindexed',%s,now(),now())""",
                 (post_id, likes),
             )
-    candidates = retrieve_candidates(1)
+    candidates = retrieve_candidates(READER)
     assert len(candidates) == 30
     by_id = {p["id"]: p for p in candidates}
     assert "latest" in by_id[1001]["sources"]
@@ -346,27 +440,27 @@ def test_function_generation_rejects_superseded_result_and_labels_replay(
 
     def supersede(inputs: RankingInput) -> RankingResult:
         with connection() as conn:
-            enqueue(conn, "build", user_id=1)
+            enqueue(conn, "build", user_id=READER)
         return {"ordered_ids": [1], "mode": "replay", "usage": {}}
 
     monkeypatch.setattr("sns_recommend.pipelines.generation.rerank_candidates", supersede)
-    result = generate(1)
+    result = generate(READER)
     assert result["strategy"] == "replay_llm"
     assert not result["published"]
-    assert not read_feed(1)["ready"]
+    assert not read_feed(READER)["ready"]
 
 
 def test_retrieval_includes_exact_48h_boundary_and_rejects_future(infra: None) -> None:
     from sns_recommend.post_examples import post_created_at
 
     reference = datetime(2026, 10, 10, 12, tzinfo=UTC)
-    with connection() as conn:
-        conn.execute("UPDATE posts SET deleted=true WHERE id>20")
-        for post_id in range(1, 21):
+    with source_connection() as conn:
+        conn.execute("UPDATE posts SET deleted_at=now() WHERE id>24")
+        for post_id in range(1, 25):
             conn.execute(
                 "UPDATE posts SET created_at=%s WHERE id=%s",
-                (post_created_at(post_id, reference), post_id),
+                (post_created_at(post_id, reference, group_size=6), post_id),
             )
     prepare()
-    ids = {p["id"] for p in retrieve_candidates(1, k=50, as_of=reference)}
-    assert ids == set(range(6, 16))
+    ids = {p["id"] for p in retrieve_candidates(READER, k=50, as_of=reference)}
+    assert ids == set(range(7, 19))

@@ -6,6 +6,7 @@ from redis.exceptions import RedisError
 
 from sns_recommend.core.types import FeedResponse
 from sns_recommend.data.events import excluded_ids
+from sns_recommend.storage import source
 from sns_recommend.storage.feeds import MAX_CURSOR_LENGTH, read_feed
 from sns_recommend.storage.jobs import enqueue
 from sns_recommend.storage.postgres import connection
@@ -22,13 +23,16 @@ def feed(
     try:
         with connection() as conn:
             excluded = excluded_ids(conn, user_id)
-        result = read_feed(user_id, limit, cursor, excluded)
+        # Deleted posts are checked in the SNS database, only for the IDs this page can show.
+        result = read_feed(user_id, limit, cursor, excluded, alive=source.alive_ids)
+        if not source.user_exists(user_id):
+            raise HTTPException(404, "unknown user")
         with connection() as conn:
-            user = conn.execute(
-                "UPDATE users SET active_at=now() WHERE id=%s RETURNING id", (user_id,)
-            ).fetchone()
-            if not user:
-                raise HTTPException(404, "unknown user")
+            conn.execute(
+                """INSERT INTO profiles(user_id,active_at) VALUES (%s,now())
+                ON CONFLICT(user_id) DO UPDATE SET active_at=now()""",
+                (user_id,),
+            )
             if not result["ready"] or result.get("stale") or not result["next_cursor"]:
                 result["refresh_job"] = enqueue(conn, "build", user_id=user_id, throttle=True)
         return result

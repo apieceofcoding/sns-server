@@ -1,13 +1,14 @@
 name: sns-recommend-course
 services:
+  # Vectors, events and jobs. Accounts and posts stay in the SNS app database (5432).
   db:
-    image: pgvector/pgvector:pg17
+    image: pgvector/pgvector:pg18
     environment:
       POSTGRES_USER: recommend
       POSTGRES_PASSWORD: recommend
       POSTGRES_DB: recommend
     ports: ["127.0.0.1:55432:5432"]
-    volumes: ["recommend-db:/var/lib/postgresql/data"]
+    volumes: ["recommend-index-pg18:/var/lib/postgresql"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U recommend -d recommend"]
       interval: 2s
@@ -25,8 +26,10 @@ services:
     build: .
     profiles: [app]
     ports: ["127.0.0.1:8001:8001"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
     environment:
       DATABASE_URL: postgresql://recommend:recommend@db:5432/recommend
+      SOURCE_DATABASE_URL: postgresql://snsuser:snspassword@host.docker.internal:5432/snsdb
       REDIS_URL: redis://redis:6379/0
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:-course-local-token}
     depends_on:
@@ -42,8 +45,10 @@ services:
     build: .
     volumes: ["./recordings:/app/recordings"]
     profiles: [app]
+    extra_hosts: ["host.docker.internal:host-gateway"]
     environment:
       DATABASE_URL: postgresql://recommend:recommend@db:5432/recommend
+      SOURCE_DATABASE_URL: postgresql://snsuser:snspassword@host.docker.internal:5432/snsdb
       REDIS_URL: redis://redis:6379/0
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:-course-local-token}
       MODEL_MODE: ${MODEL_MODE:-fixture}
@@ -55,4 +60,4 @@ services:
       api: {condition: service_healthy}
     command: ["uv", "run", "python", "-m", "sns_recommend.worker"]
 volumes:
-  recommend-db:
+  recommend-index-pg18:
