@@ -20,12 +20,12 @@ uv sync --locked
 
 ## Git 구성
 
-`main`은 현재 완성 코드입니다. `course-start → part-1-environment → … → part-9-resilience` 순서로 챕터를 진행해요. 모든 챕터에는 `sns-app/`과 당시의 `sns-recommend/`가 함께 있습니다.
+`main`은 현재 완성 코드입니다. `part-1 → … → part-9-resilience` 순서로 챕터를 진행해요. 모든 챕터에는 `sns-app/`과 당시의 `sns-recommend/`가 함께 있습니다.
 
 기존 추천 저장소의 커밋과 누적 관계를 보존했습니다. 파일을 `sns-recommend/` 아래로 옮겨 커밋 해시는 바뀌었지만 작성자, 메시지와 변경 이력은 남아 있어요. `sns-app/`은 모노레포 전환 시점의 코드로 고정되어 있으며 각 챕터에서 자동으로 연동이 완성되는 것은 아닙니다.
 
 ```sh
-git switch part-1-environment
+git switch part-1
 # 다음 챕터
 git switch part-2-feed-api
 # 완성 코드
