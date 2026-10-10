@@ -1,0 +1,57 @@
+[project]
+name = "sns-recommend"
+version = "0.1.0"
+description = "SNS recommendation course API and worker"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "psycopg[binary]>=3.2,<4",
+    "redis>=5,<7",
+    "pydantic-settings>=2,<3",
+    "httpx>=0.28,<1",
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.34,<1",
+    "langchain-core>=1,<2",
+    "langchain-google-genai>=4,<5",
+    "langgraph>=1,<2",
+    "langgraph-checkpoint-postgres>=3,<4",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.4.0",
+    "pytest>=8,<9",
+    "ruff>=0.11,<1",
+    "types-redis>=4.6.0.20241004",
+]
+
+[project.scripts]
+sns-rec = "sns_recommend.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sns_recommend"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"sql" = "sns_recommend/resources/sql"
+"data" = "sns_recommend/resources/data"
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: requires course PostgreSQL and Redis"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "ANN"]
+
+[tool.mypy]
+files = ["src", "tests"]
+python_version = "3.13"
+disallow_untyped_defs = true
+check_untyped_defs = true
+disallow_any_generics = true
+warn_unused_ignores = true
