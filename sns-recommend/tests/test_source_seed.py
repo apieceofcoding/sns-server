@@ -17,11 +17,17 @@ def test_seed_uses_only_app_schema_and_preserves_existing_data():
         users = conn.execute("SELECT * FROM users ORDER BY id").fetchall()
         posts = conn.execute("SELECT * FROM posts ORDER BY id").fetchall()
         interests = conn.execute("SELECT * FROM user_interests ORDER BY user_id").fetchall()
-        assert len(users) == 3
-        assert len(posts) == 200
-        assert len(interests) == 3
-        assert len({post["content"] for post in posts}) == 200
-        assert {post["user_id"] for post in posts} == {user["id"] for user in users}
+        assert len(users) == 9
+        assert len(posts) == 240
+        assert len(interests) == 9
+        assert len({post["content"] for post in posts}) == 240
+        assert {post["user_id"] for post in posts} == set(range(1, 7))
+        from collections import Counter
+        from sns_recommend.seed import TOPICS
+        from sns_recommend.post_examples import post_body
+        assert Counter(post["user_id"] for post in posts) == {i: 40 for i in range(1, 7)}
+        for author, topic in enumerate(TOPICS, 1):
+            assert {p["content"] for p in posts if p["user_id"] == author} == {post_body(topic, n) for n in range(40)}
         for table in ("users", "posts"):
             sequence = conn.execute(
                 "SELECT pg_get_serial_sequence(%s, 'id') AS name", (table,)
