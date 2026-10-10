@@ -14,7 +14,7 @@ cd sns-server/sns-recommend
 
 아래 명령은 모두 **`sns-recommend/`에서 1~9단원 순서로** 실행합니다. 브랜치를 바꾸기 전 API와 worker를 `Ctrl+C`로 종료해요. DB와 Redis의 데이터는 다음 단원에서도 유지합니다.
 
-`seed`는 필요한 테이블과 실습 데이터를 준비하며 기존 ID는 덮어쓰지 않습니다. 별도 `init`은 필요 없어요. 기본 모델은 `fixture`라 외부 API 비용이 없습니다.
+`seed`는 1단원에서 테이블과 데이터를 한 번 준비합니다. 3, 4, 5, 9단원에서는 `init`으로 DB 구조만 갱신해요. 기존 데이터는 유지합니다. 기본 모델은 `fixture`라 외부 API 비용이 없습니다.
 
 ### 1. 환경과 데이터
 
@@ -34,7 +34,6 @@ uv run sns-recommend status
 git switch part-2-feed-api
 uv sync --locked
 docker compose up -d --wait
-uv run sns-recommend seed
 uv run sns-recommend baseline --user 1 --strategy latest
 ```
 
@@ -62,7 +61,7 @@ curl -fsS -H "X-Internal-Token: course-local-token" http://localhost:8001/intern
 git switch part-3-events
 uv sync --locked
 docker compose up -d --wait
-uv run sns-recommend seed
+uv run sns-recommend init
 uv run sns-recommend source-post --post 1001 --body "Python PostgreSQL 백엔드 실습"
 ```
 
@@ -97,7 +96,7 @@ print(response.json())
 git switch part-4-indexing
 uv sync --locked
 docker compose up -d --wait
-uv run sns-recommend seed
+uv run sns-recommend init
 uv run sns-recommend index
 uv run sns-recommend index
 ```
@@ -110,7 +109,7 @@ uv run sns-recommend index
 git switch part-5-retrieval
 uv sync --locked
 docker compose up -d --wait
-uv run sns-recommend seed
+uv run sns-recommend init
 uv run sns-recommend embedding --user 1
 uv run sns-recommend embedding --user 2
 ```
@@ -123,7 +122,6 @@ uv run sns-recommend embedding --user 2
 git switch part-6-reranking
 uv sync --locked
 docker compose up -d --wait
-uv run sns-recommend seed
 uv run sns-recommend generate --user 1
 ```
 
@@ -135,7 +133,6 @@ uv run sns-recommend generate --user 1
 git switch part-7-langgraph
 uv sync --locked
 docker compose up -d --wait
-uv run sns-recommend seed
 uv run python -m sns_recommend.worker --once
 uv run python -m sns_recommend.worker --once
 uv run sns-recommend graph --user 1
@@ -151,7 +148,6 @@ uv run python -m sns_recommend.worker --once
 git switch part-8-evaluation
 uv sync --locked
 docker compose up -d --wait
-uv run sns-recommend seed
 uv run sns-recommend evaluate
 ```
 
@@ -163,7 +159,7 @@ uv run sns-recommend evaluate
 git switch part-9-resilience
 uv sync --locked
 docker compose up -d --wait
-uv run sns-recommend seed
+uv run sns-recommend init
 uv run sns-recommend graph --user 1
 uv run sns-recommend benchmark --user 1
 uv run sns-recommend schedule
