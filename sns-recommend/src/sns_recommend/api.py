@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from redis.exceptions import RedisError
 from .config import settings
+from . import source
 from .feed import read_feed
 from .db import connection
 from .events import Event, accept_event, excluded_ids
@@ -25,7 +26,8 @@ def feed(user_id: int, limit: int = Query(20, ge=1, le=50), cursor: str | None =
     try:
         with connection() as conn:
             excluded = excluded_ids(conn, user_id)
-        return read_feed(user_id, limit, cursor, excluded)
+        # Deleted posts are checked in the SNS database, only for the IDs this page can show.
+        return read_feed(user_id, limit, cursor, excluded, alive=source.alive_ids)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     except LookupError as exc:

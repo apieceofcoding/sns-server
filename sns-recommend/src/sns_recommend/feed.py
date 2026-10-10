@@ -61,7 +61,7 @@ def cursor_decode(cursor, user_id):
         raise ValueError("invalid cursor") from exc
 
 
-def read_feed(user_id, limit=20, cursor=None, excluded=None):
+def read_feed(user_id, limit=20, cursor=None, excluded=None, alive=None):
     r = redis_client()
     if cursor:
         snapshot, offset = cursor_decode(cursor, user_id)
@@ -76,6 +76,9 @@ def read_feed(user_id, limit=20, cursor=None, excluded=None):
     excluded = excluded or set()
     ids = data["ids"]
     selected, end = [], min(len(ids), offset + limit * 5)
+    if alive is not None:
+        window = ids[offset:end]
+        excluded = excluded | (set(window) - alive(window))
     while offset < end and len(selected) < limit:
         post_id = ids[offset]
         offset += 1
