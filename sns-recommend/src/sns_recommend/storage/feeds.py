@@ -6,6 +6,7 @@ import hmac
 import json
 import re
 import time
+from collections.abc import Callable
 from uuid import uuid4
 
 from redis import Redis
@@ -103,7 +104,11 @@ def cursor_decode(cursor: str, user_id: int) -> tuple[str, int]:
 
 
 def read_feed(
-    user_id: int, limit: int = 20, cursor: str | None = None, excluded: set[int] | None = None
+    user_id: int,
+    limit: int = 20,
+    cursor: str | None = None,
+    excluded: set[int] | None = None,
+    alive: Callable[[list[int]], set[int]] | None = None,
 ) -> FeedResponse:
     r = redis_client()
     if cursor:
@@ -120,6 +125,9 @@ def read_feed(
     ids = data["ids"]
     selected: list[int] = []
     end = min(len(ids), offset + limit * 5)
+    if alive is not None:
+        window = ids[offset:end]
+        excluded = excluded | (set(window) - alive(window))
     while offset < end and len(selected) < limit:
         post_id = ids[offset]
         offset += 1

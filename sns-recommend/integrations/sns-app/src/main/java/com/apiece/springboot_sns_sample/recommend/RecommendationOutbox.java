@@ -24,9 +24,13 @@ public class RecommendationOutbox {
         } catch (JsonProcessingException ex) {throw new IllegalArgumentException(ex);}
     }
 
-    public static Map<String,Object> post(long id,long authorId,long version,String body) {
-        return Map.of("event_id",UUID.randomUUID().toString(),"kind","post.updated",
-            "post_id",id,"version",version,"occurred_at",Instant.now().toString(),
-            "payload",Map.of("body",body,"author_id",authorId,"topic","unknown"));
+    // 본문은 보내지 않습니다. 추천 worker가 글 ID로 원본을 읽고, 버전으로 최신 여부를 확인해요.
+    public static Map<String,Object> post(long id,long version) {return event("post.updated",id,version);}
+
+    public static Map<String,Object> deleted(long id,long version) {return event("post.deleted",id,version);}
+
+    private static Map<String,Object> event(String kind,long id,long version) {
+        return Map.of("event_id",UUID.randomUUID().toString(),"kind",kind,
+            "post_id",id,"version",version,"occurred_at",Instant.now().toString());
     }
 }

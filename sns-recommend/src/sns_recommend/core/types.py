@@ -17,8 +17,8 @@ class Candidate(TypedDict):
     id: int
     author_id: int
     body: str
-    topic: str
     created_at: str
+    topic: NotRequired[str]  # Evaluation files only. The SNS database has no topic column.
     version: NotRequired[int]
     likes: NotRequired[int]
     similarity: NotRequired[float | None]
@@ -40,7 +40,6 @@ class RankingInput(TypedDict):
     mode: ModelMode
     prompt_version: str
     user_id: NotRequired[int]
-    user_version: NotRequired[int]
 
 
 class TokenUsage(TypedDict, total=False):

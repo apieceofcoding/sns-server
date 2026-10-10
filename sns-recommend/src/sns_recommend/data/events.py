@@ -5,23 +5,12 @@ from typing import Literal, Self
 from uuid import UUID
 
 from psycopg.types.json import Jsonb
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 from sns_recommend.core.types import DatabaseConnection, EventResult
+from sns_recommend.storage import source
 from sns_recommend.storage.jobs import enqueue
 from sns_recommend.storage.postgres import connection
-
-
-class PostContent(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    body: str = Field(min_length=1, max_length=10_000, strict=True)
-    author_id: int = Field(gt=0, le=2**63 - 1, strict=True)
-    topic: str = Field(min_length=1, max_length=100, strict=True)
-
-
-class ProfileContent(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    interests: str = Field(min_length=1, max_length=1_000, strict=True)
 
 
 class Event(BaseModel):
@@ -39,8 +28,8 @@ class Event(BaseModel):
     occurred_at: AwareDatetime = Field(default_factory=lambda: datetime.now(UTC))
     user_id: int | None = Field(default=None, gt=0, le=2**63 - 1, strict=True)
     post_id: int | None = Field(default=None, gt=0, le=2**63 - 1, strict=True)
+    # Post events carry the ID and version only. The body stays in the SNS database.
     version: int = Field(default=1, ge=1, le=2**63 - 1, strict=True)
-    payload: dict[str, JsonValue] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def validate_fields(self) -> Self:
@@ -51,22 +40,13 @@ class Event(BaseModel):
             raise ValueError("user_id required")
         if self.kind in {"impression", "click", "like", "not_interested"} and self.post_id is None:
             raise ValueError("post_id required")
-        if self.kind == "post.updated":
-            self.payload = PostContent.model_validate(self.payload).model_dump()
-        elif self.kind == "profile.updated":
-            self.payload = ProfileContent.model_validate(self.payload).model_dump()
-        elif self.payload:
-            raise ValueError("payload must be empty for this event kind")
         return self
 
 
 def accept_event(event: Event) -> EventResult:
+    if event.user_id is not None and not source.user_exists(event.user_id):
+        raise LookupError("unknown user")
     with connection() as conn:
-        if (
-            event.user_id
-            and not conn.execute("SELECT id FROM users WHERE id=%s", (event.user_id,)).fetchone()
-        ):
-            raise LookupError("unknown user")
         inserted = conn.execute(
             """INSERT INTO events(event_id,kind,user_id,post_id,
             occurred_at,payload) VALUES (%s,%s,%s,%s,%s,%s)
@@ -83,24 +63,13 @@ def accept_event(event: Event) -> EventResult:
         if not inserted:
             return {"accepted": False, "duplicate": True}
         if event.kind.startswith("post."):
-            body = event.payload.get("body", "")
-            changed = conn.execute(
-                """INSERT INTO posts(id,author_id,body,topic,version,
-                created_at,deleted) VALUES (%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT(id) DO UPDATE SET body=EXCLUDED.body,topic=EXCLUDED.topic,
-                author_id=EXCLUDED.author_id,version=EXCLUDED.version,deleted=EXCLUDED.deleted
-                WHERE posts.version<EXCLUDED.version RETURNING id""",
-                (
-                    event.post_id,
-                    event.payload.get("author_id", 0),
-                    body,
-                    event.payload.get("topic", "unknown"),
-                    event.version,
-                    event.occurred_at,
-                    event.kind == "post.deleted",
-                ),
+            newer = conn.execute(
+                """SELECT 1 FROM events WHERE post_id=%s AND kind LIKE 'post.%%'
+                AND event_id<>%s AND (payload->>'version')::bigint>=%s LIMIT 1""",
+                (event.post_id, event.event_id, event.version),
             ).fetchone()
-            if changed:
+            if not newer:
+                # The worker reads the current post from the SNS database, then stores its vector.
                 enqueue(conn, "index", post_id=event.post_id, payload={"version": event.version})
         elif event.kind in {"impression", "not_interested"}:
             conn.execute(
@@ -108,18 +77,12 @@ def accept_event(event: Event) -> EventResult:
                 ON CONFLICT(user_id,post_id) DO UPDATE SET reason=EXCLUDED.reason""",
                 (event.user_id, event.post_id, event.kind),
             )
-        elif event.kind == "profile.updated":
-            conn.execute(
-                "UPDATE users SET interests=%s,version=version+1 WHERE id=%s",
-                (event.payload["interests"], event.user_id),
-            )
-            enqueue(conn, "profile", user_id=event.user_id)
-        elif event.kind in {"like", "click"}:
+        else:
+            # like, click and profile.updated refresh the user vector.
             enqueue(conn, "profile", user_id=event.user_id)
         return {"accepted": True, "duplicate": False}
 
 
 def excluded_ids(conn: DatabaseConnection, user_id: int) -> set[int]:
     rows = conn.execute("SELECT post_id FROM exclusions WHERE user_id=%s", (user_id,)).fetchall()
-    deleted = conn.execute("SELECT id FROM posts WHERE deleted").fetchall()
-    return {r["post_id"] for r in rows} | {r["id"] for r in deleted}
+    return {r["post_id"] for r in rows}

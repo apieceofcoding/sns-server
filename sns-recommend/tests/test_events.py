@@ -11,9 +11,10 @@ from sns_recommend.api import app
 from sns_recommend.data.events import Event
 
 
-def test_post_event_requires_content_contract() -> None:
+def test_event_requires_its_target() -> None:
+    assert Event(event_id=uuid4(), kind="post.updated", post_id=3, version=2).version == 2
     with pytest.raises(ValidationError):
-        Event(event_id=uuid4(), kind="post.updated", post_id=3)
+        Event(event_id=uuid4(), kind="post.updated", version=2)
     with pytest.raises(ValidationError):
         Event(event_id=uuid4(), kind="like", user_id=1)
 
@@ -23,26 +24,21 @@ def test_post_event_requires_content_contract() -> None:
     [
         {"post_id": True},
         {"post_id": 2**63},
+        {"version": 0},
         {"version": 2**63},
         {"occurred_at": "2026-10-06T12:00:00"},
-        {"payload": {"body": "Python", "author_id": "10", "topic": "backend"}},
-        {"payload": {"body": {"text": "Python"}, "author_id": 10, "topic": "backend"}},
-        {"payload": {"body": "x" * 10_001, "author_id": 10, "topic": "backend"}},
-        {"payload": {"body": "Python", "author_id": 10, "topic": "backend", "extra": 1}},
+        # Content never travels in an event. The worker reads it from the SNS database.
+        {"payload": {"body": "Python"}},
+        {"body": "Python"},
     ],
 )
 def test_invalid_events_are_rejected(changes: dict[str, object]) -> None:
-    event = {
-        "event_id": uuid4(),
-        "kind": "post.updated",
-        "post_id": 3,
-        "payload": {"body": "Python", "author_id": 10, "topic": "backend"},
-    }
+    event = {"event_id": uuid4(), "kind": "post.updated", "post_id": 3}
     with pytest.raises(ValidationError):
         Event.model_validate({**event, **changes})
 
 
-def test_invalid_profile_payload_never_reaches_database(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_event_with_content_never_reaches_database(monkeypatch: pytest.MonkeyPatch) -> None:
     def forbidden(*args: object) -> Never:
         raise AssertionError("invalid request reached database")
 

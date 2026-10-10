@@ -9,6 +9,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
+    # SNS database: accounts and posts stay here. Recommendation database: vectors and jobs.
+    source_database_url: str = "postgresql://snsuser:snspassword@localhost:5432/snsdb"
     database_url: str = "postgresql://recommend:recommend@localhost:55432/recommend"
     redis_url: str = "redis://localhost:56379/0"
     internal_token: SecretStr = Field(

@@ -32,7 +32,7 @@ def diversify(candidates: Sequence[Candidate], ids: Sequence[int]) -> list[int]:
                 if previous is None
                 or (
                     lookup[i]["author_id"] != previous["author_id"]
-                    and lookup[i]["topic"] != previous["topic"]
+                    and ("topic" not in previous or lookup[i].get("topic") != previous["topic"])
                 )
             ),
             None,
