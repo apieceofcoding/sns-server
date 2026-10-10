@@ -30,7 +30,6 @@ Python의 [src 레이아웃](https://packaging.python.org/en/latest/discussions/
 git switch part-9-resilience
 uv sync --locked
 docker compose up -d --wait
-uv run sns-recommend init
 uv run sns-recommend seed
 uv run sns-recommend index
 uv run sns-recommend graph --user 1
@@ -108,6 +107,9 @@ RUN_INTEGRATION=1 uv run pytest -q
 | part-8-evaluation | 네 전략의 시간 기준 평가 |
 | part-9-resilience | 호출 예산, 갱신, 측정과 전체 검증 |
 
-각 브랜치는 이전 챕터 커밋을 포함합니다. 브랜치를 바꾼 뒤 `uv sync --locked`와 `uv run sns-recommend init`을 실행해요. 완료된 스냅샷을 보존하며 다음 챕터를 이어갑니다.
+각 브랜치는 이전 챕터 커밋을 포함합니다. 브랜치를 바꾼 뒤 `uv sync --locked`와 `uv run sns-recommend seed`을 실행해요. 완료된 스냅샷을 보존하며 다음 챕터를 이어갑니다.
 
 [챕터 자료](../materials/README.md), [Spring SNS 연동 예제](integrations/sns-app/README.md), [서비스 설계](../materials/support/design/sns-recommend-service.md).
+
+`seed` 실행 시 테이블도 준비합니다. DB 서버는 먼저 실행해 주세요. 기존 데이터는 유지하고 없는 ID만 추가합니다.
+
