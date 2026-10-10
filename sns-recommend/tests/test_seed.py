@@ -1,6 +1,22 @@
-from sns_recommend.seed import TOPICS
+from collections import Counter
+from datetime import UTC, datetime, timedelta
+
+from sns_recommend.seed import TOPICS, USERS, READERS
+from sns_recommend.post_examples import post_body, post_created_at
 
 
-def test_course_topics_have_content():
+def test_author_topics_and_reader_interests():
     assert len(TOPICS) == 6
-    assert all(len(v) > 10 for v in TOPICS.values())
+    assert set(USERS) == set(range(1, 10))
+    assert set(READERS) == {7, 8, 9}
+    bodies = [post_body(topic, n) for topic in TOPICS for n in range(40)]
+    assert len(set(bodies)) == 240
+
+
+def test_each_time_group_contains_all_six_topics():
+    reference = datetime(2026, 10, 11, tzinfo=UTC)
+    dates = {i: post_created_at(i, reference, group_size=6) for i in range(1, 241)}
+    assert len([d for d in dates.values() if reference - timedelta(hours=48) <= d <= reference]) == 228
+    for start in (1, 7, 13, 19):
+        assert len({dates[i] for i in range(start, start + 6)}) == 1
+        assert Counter((i - 1) % 6 for i in range(start, start + 6)) == Counter(range(6))

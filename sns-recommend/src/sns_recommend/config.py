@@ -4,7 +4,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-    database_url: str = "postgresql://recommend:recommend@localhost:55432/recommend"
+    # SNS app database. Accounts and posts stay there and are never copied.
+    source_database_url: str = "postgresql://snsuser:snspassword@localhost:5432/snsdb"
     redis_url: str = "redis://localhost:56379/0"
     internal_token: str = "course-local-token"
     model_mode: str = "fixture"

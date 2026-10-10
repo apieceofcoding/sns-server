@@ -1,18 +1,6 @@
 name: sns-recommend-course
 services:
-  db:
-    image: pgvector/pgvector:pg17
-    environment:
-      POSTGRES_USER: recommend
-      POSTGRES_PASSWORD: recommend
-      POSTGRES_DB: recommend
-    ports: ["127.0.0.1:55432:5432"]
-    volumes: ["recommend-db:/var/lib/postgresql/data"]
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U recommend -d recommend"]
-      interval: 2s
-      timeout: 3s
-      retries: 30
+  # Finished recommendation ID lists. Accounts and posts stay in the SNS app database (5432).
   redis:
     image: redis:7-alpine
     ports: ["127.0.0.1:56379:6379"]
@@ -21,5 +9,3 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
-volumes:
-  recommend-db:

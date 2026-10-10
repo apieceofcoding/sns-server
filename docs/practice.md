@@ -16,6 +16,14 @@ cd sns-service/sns-recommend
 
 `seed`는 1단원에서 테이블과 데이터를 한 번 준비합니다. 3, 4, 5, 9단원에서는 `init`으로 DB 구조만 갱신해요. 기존 데이터는 유지합니다. 기본 모델은 `fixture`라 외부 API 비용이 없습니다.
 
+| 저장소 | 내용 | 사용 시작 |
+|---|---|---|
+| SNS DB (`snsdb`, 5432) | 회원과 게시글 원본, 관심사, Outbox | 1단원 |
+| Redis (56379) | 완성된 추천 ID 목록 | 2단원 |
+| 추천 DB (`recommend`, 55432) | 행동과 작업, 글 ID별 벡터 | 3단원 |
+
+게시글과 회원은 복사하지 않습니다. 추천 DB는 글 ID, 버전과 벡터만 저장하고 본문은 SNS DB에서 읽어요.
+
 ### 1. 환경과 데이터
 
 ```sh
@@ -92,7 +100,7 @@ uv run sns-recommend relay
 uv run sns-recommend status
 ```
 
-처음에는 `delivered: 1`, 두 번째는 `delivered: 0`입니다. 새 글까지 포함해 게시글은 241개예요. 현재 명령은 Python의 `source_demo`를 사용하며 Spring Outbox와 별도입니다.
+`source-post`는 SNS DB에서 글 저장과 Outbox 기록을 한 트랜잭션으로 처리합니다. 이벤트에는 글 ID와 버전만 담겨요. 처음에는 `delivered: 1`, 두 번째는 `delivered: 0`이고 게시글은 241개가 됩니다. Spring에서 같은 일을 하는 코드는 [연동 예제](https://github.com/apieceofcoding/sns-service/blob/main/sns-recommend/integrations/sns-app/README.md)에 있어요.
 
 좋아요 행동도 API로 전달합니다. 응답에서 `accepted: true`를 확인해요.
 
@@ -120,7 +128,7 @@ uv run sns-recommend index
 uv run sns-recommend index
 ```
 
-첫 실행은 벡터를 저장하고 두 번째는 `indexed: 0`입니다. 기본값은 모의 임베딩이에요.
+첫 실행은 SNS DB의 본문으로 벡터를 만들어 추천 DB에 저장하고, 두 번째는 `indexed: 0`입니다. 기본값은 모의 임베딩이에요.
 
 ### 5. 관심사 기반 후보
 
@@ -212,7 +220,10 @@ docker compose down
 글 작성 시각은 다시 seed해도 바뀌지 않습니다. 48시간 뒤에는 추천 대상이 줄어들 수 있어요. **실습 데이터를 지우고 1단원부터 다시 시작할 때만** 다음 명령을 사용합니다.
 
 ```sh
+# 추천 DB와 Redis
 docker compose down -v
+# SNS 앱의 회원, 게시글과 파일
+docker compose -f ../sns-app/docker-compose.yml down -v
 ```
 
 ## SNS 앱 연결

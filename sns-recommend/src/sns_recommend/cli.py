@@ -1,6 +1,6 @@
 import argparse
 import json
-from .db import initialize, connection
+from .db import initialize, source_connection
 from .seed import seed
 from .baseline import baseline
 
@@ -20,7 +20,7 @@ def main():
     elif args.command == "baseline":
         result = baseline(args.user, args.strategy)
     else:
-        with connection() as conn:
+        with source_connection() as conn:
             result = {"posts": conn.execute("SELECT count(*) AS n FROM posts").fetchone()["n"],
                       "users": conn.execute("SELECT count(*) AS n FROM users").fetchone()["n"]}
     print(json.dumps(result, ensure_ascii=False, default=str))
