@@ -23,10 +23,31 @@ git switch part-1-environment
 uv sync --locked
 docker compose -f ../sns-app/docker-compose.yml up -d --wait postgres
 uv run sns-recommend seed
-docker compose -f ../sns-app/docker-compose.yml exec postgres psql -U snsuser -d snsdb -P pager=off -c "SELECT id, user_id, left(content, 60) AS content, created_at FROM posts ORDER BY id LIMIT 5;"
 ```
 
-SNS 앱 DB에 저장된 게시글 5개의 본문과 작성 시각을 확인합니다.
+DB에 접속합니다.
+
+```sh
+docker compose -f ../sns-app/docker-compose.yml exec postgres psql -U snsuser -d snsdb -P pager=off
+```
+
+사용자와 게시글 샘플을 조회해요.
+
+```sql
+SELECT id, username, created_at
+FROM users
+ORDER BY id
+LIMIT 5;
+
+SELECT id, user_id, left(content, 60) AS content, created_at
+FROM posts
+ORDER BY id
+LIMIT 5;
+```
+
+`\q`를 입력해 DB 접속을 종료합니다.
+
+
 
 ### 2. 저장된 추천 조회
 
