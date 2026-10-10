@@ -12,15 +12,14 @@
 | seed | 1단원에서 테이블과 데이터 준비. 기존 ID는 건너뜀 |
 | init | 3, 4, 5, 9단원에서 DB 구조 갱신. 데이터 추가와 초기화 없음 |
 | 원본 PostgreSQL | 18, snsdb, 5432 |
-| 벡터 PostgreSQL | 18 + pgvector, recommend, 55432 |
 | Redis | 56379. 2단원부터 추천 ID 목록 저장 |
 | FastAPI | 8001. 2단원부터 실행 |
 
-원본 사용자와 게시글은 앱의 `snsdb`(5432)에 저장합니다. `SOURCE_DATABASE_URL`은 원본 DB, `DATABASE_URL`은 벡터 DB(55432) 연결이에요. `seed`와 `status`는 원본 DB를 사용하며, 추천 DB에 `users`, `posts`를 만들지 않습니다.
+원본 사용자와 게시글은 앱의 `snsdb`(5432)에 저장합니다. `SOURCE_DATABASE_URL`로 원본 DB에 연결해요. `seed`와 `status`는 원본 DB를 사용하며, 추천 DB에 `users`, `posts`를 만들지 않습니다.
 
 관심사 원문은 snsdb의 `user_interests`에 저장해요. 게시글은 앱의 `content`, `user_id`, `like_count` 컬럼을 사용합니다. seed 계정은 `course-user-1`부터 `course-user-3`까지이며 로그인용 비밀번호는 설정하지 않습니다.
 
-두 DB는 PostgreSQL 18을 사용합니다. 추천 DB는 `recommend-index-pg18` 볼륨에서 새로 시작해요. 이전 실습 볼륨은 보존되지만 자동으로 이전되지 않습니다. 1단원은 pgvector 확장만 준비하고, 4단원부터 원본 ID와 임베딩, 검색용 메타데이터를 색인합니다.
+1단원은 SNS 앱의 PostgreSQL만 실행합니다. 추천 서비스의 Compose는 2단원부터 사용해요.
 
 [본문 예시](src/sns_recommend/post_examples.py)는 소재 10개와 표현 4종을 조합합니다. seed 응답의 `reference_time`을 T로 삼아요.
 

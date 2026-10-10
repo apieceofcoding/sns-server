@@ -8,12 +8,6 @@ from .config import settings
 
 
 @contextmanager
-def connection():
-    with psycopg.connect(settings().database_url, row_factory=dict_row) as conn:
-        yield conn
-
-
-@contextmanager
 def source_connection():
     with psycopg.connect(settings().source_database_url, row_factory=dict_row) as conn:
         yield conn
@@ -31,6 +25,3 @@ def initialize():
             user_id bigint PRIMARY KEY REFERENCES users(id),
             interests text NOT NULL
         )""")
-    with connection() as conn:
-        for path in sorted((root / "sql").glob("*.sql")):
-            conn.execute(path.read_text())

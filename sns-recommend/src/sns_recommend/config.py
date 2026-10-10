@@ -5,7 +5,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
     source_database_url: str = "postgresql://snsuser:snspassword@localhost:5432/snsdb"
-    database_url: str = "postgresql://recommend:recommend@localhost:55432/recommend"
     internal_token: str = "course-local-token"
     model_mode: str = "fixture"
     embedding_model: str = "gemini-embedding-2"
