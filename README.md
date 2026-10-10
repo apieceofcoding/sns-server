@@ -9,6 +9,8 @@ Spring SNS와 Python 추천 서비스를 함께 관리하는 모노레포입니�
 
 ## 도구 설치
 
+[Git](https://git-scm.com/downloads)도 준비합니다. `git --version`으로 설치를 확인해요.
+
 ### Windows (PowerShell)
 
 [Java 25 설치](https://adoptium.net/installation/)와 [uv 설치](https://docs.astral.sh/uv/getting-started/installation/) 명령입니다.
@@ -46,17 +48,201 @@ uv python install 3.13
 
 Java와 javac는 25, Docker는 서버 정보가 나와야 합니다. 다른 Java가 선택되면 `JAVA_HOME`과 PATH를 JDK 25로 맞춰 주세요. Gradle은 별도 설치하지 않으며, Windows에서는 `./gradlew` 대신 `.\gradlew.bat`를 사용합니다.
 
-## 시작하기
+## 실습 순서
 
-Java 25, Docker와 uv를 준비합니다. 저장소 루트에서 실행해요.
+처음에는 저장소를 받고 `sns-recommend/`로 이동합니다. 이미 받았다면 `cd sns-server/sns-recommend`부터 시작해요.
+
+```sh
+git clone https://github.com/apieceofcoding/sns-server.git
+cd sns-server/sns-recommend
+```
+
+아래 명령은 모두 **`sns-recommend/`에서 1~9단원 순서로** 실행합니다. 브랜치를 바꾸기 전 API와 worker를 `Ctrl+C`로 종료해요. DB와 Redis의 데이터는 다음 단원에서도 유지합니다.
+
+`seed`는 필요한 테이블과 실습 데이터를 준비하며 기존 ID는 덮어쓰지 않습니다. 별도 `init`은 필요 없어요. 기본 모델은 `fixture`라 외부 API 비용이 없습니다.
+
+### 1. 환경과 데이터
 
 ```sh
 git switch part-1-environment
-cd sns-recommend
 uv sync --locked
 docker compose up -d --wait
 uv run sns-recommend seed
 uv run sns-recommend status
 ```
 
-`seed`가 테이블과 실습 데이터를 준비합니다. 기존 ID는 덮어쓰지 않아요.
+`posts: 200`, `users: 3`을 확인합니다. 이 단원은 PostgreSQL만 실행해요.
+
+### 2. 저장된 추천 조회
+
+```sh
+git switch part-2-feed-api
+uv sync --locked
+docker compose up -d --wait
+uv run sns-recommend seed
+uv run sns-recommend baseline --user 1 --strategy latest
+```
+
+이 단원부터 Redis에 추천 ID를 저장합니다. 아래 공통 API 실행과 조회로 `ready: true`를 확인한 뒤, `uv run sns-recommend baseline --user 1 --strategy popular`로 인기순도 비교해요.
+
+**API 실행과 조회 (2단원부터 공통)**
+
+단원 준비를 마친 뒤, 별도 터미널을 `sns-recommend/`에 열어 실행합니다.
+
+```sh
+uv run uvicorn sns_recommend.api:app --port 8001
+```
+
+실습 터미널에서 조회해요. Windows PowerShell에서는 `curl`을 `curl.exe`로 바꿉니다.
+
+```sh
+curl -fsS -H "X-Internal-Token: course-local-token" http://localhost:8001/internal/feeds/1
+```
+
+응답의 `post_ids`가 추천 순서입니다. `next_cursor`가 있으면 같은 주소에 `?cursor=값`을 붙여 다음 페이지를 조회해요.
+
+### 3. Outbox 전달
+
+```sh
+git switch part-3-events
+uv sync --locked
+docker compose up -d --wait
+uv run sns-recommend seed
+uv run sns-recommend source-post --post 1001 --body "Python PostgreSQL 백엔드 실습"
+```
+
+공통 명령으로 API를 다시 실행한 뒤 전송합니다.
+
+```sh
+uv run sns-recommend relay
+uv run sns-recommend relay
+uv run sns-recommend status
+```
+
+처음에는 `delivered: 1`, 두 번째는 `delivered: 0`입니다. 새 글까지 포함해 게시글은 201개예요. 현재 명령은 Python의 `source_demo`를 사용하며 Spring Outbox와 별도입니다.
+
+좋아요 행동도 API로 전달합니다. 응답에서 `accepted: true`를 확인해요.
+
+```sh
+uv run python -c "
+import uuid, httpx
+response = httpx.post(
+    'http://localhost:8001/internal/events',
+    headers={'X-Internal-Token': 'course-local-token'},
+    json=dict(event_id=str(uuid.uuid4()), kind='like', user_id=1, post_id=1001),
+)
+response.raise_for_status()
+print(response.json())
+"
+```
+
+### 4. 게시글 색인
+
+```sh
+git switch part-4-indexing
+uv sync --locked
+docker compose up -d --wait
+uv run sns-recommend seed
+uv run sns-recommend index
+uv run sns-recommend index
+```
+
+첫 실행은 벡터를 저장하고 두 번째는 `indexed: 0`입니다. 기본값은 모의 임베딩이에요.
+
+### 5. 관심사 기반 후보
+
+```sh
+git switch part-5-retrieval
+uv sync --locked
+docker compose up -d --wait
+uv run sns-recommend seed
+uv run sns-recommend embedding --user 1
+uv run sns-recommend embedding --user 2
+```
+
+관심사가 다른 사용자의 `post_ids`를 비교합니다. API를 실행하면 저장된 목록도 조회할 수 있어요.
+
+### 6. 재정렬
+
+```sh
+git switch part-6-reranking
+uv sync --locked
+docker compose up -d --wait
+uv run sns-recommend seed
+uv run sns-recommend generate --user 1
+```
+
+후보 ID 검증과 다양성 조정을 거친 순위가 저장됩니다. 실제 Gemini 호출은 [모델 설정](sns-recommend/README.md#모델-설정)을 따릅니다.
+
+### 7. LangGraph와 복구
+
+```sh
+git switch part-7-langgraph
+uv sync --locked
+docker compose up -d --wait
+uv run sns-recommend seed
+uv run python -m sns_recommend.worker --once
+uv run python -m sns_recommend.worker --once
+uv run sns-recommend graph --user 1
+uv run sns-recommend graph --user 1 --pause-after-rerank
+uv run python -m sns_recommend.worker --once
+```
+
+앞의 두 worker 실행은 3단원에서 남은 색인과 관심사 갱신 작업을 처리합니다. `paused: true`로 중단한 뒤 마지막 명령으로 이어서 처리해요. 실습 중 다른 worker는 실행하지 않습니다.
+
+### 8. 품질 평가
+
+```sh
+git switch part-8-evaluation
+uv sync --locked
+docker compose up -d --wait
+uv run sns-recommend seed
+uv run sns-recommend evaluate
+```
+
+`reports/evaluation.json`에서 전략별 Recall과 NDCG를 비교합니다. 고정된 합성 정답셋 평가이며, 실제 클릭률이나 Gemini 품질을 뜻하지 않아요.
+
+### 9. 갱신과 조회 측정
+
+```sh
+git switch part-9-resilience
+uv sync --locked
+docker compose up -d --wait
+uv run sns-recommend seed
+uv run sns-recommend graph --user 1
+uv run sns-recommend benchmark --user 1
+uv run sns-recommend schedule
+uv run python -m sns_recommend.worker --once
+```
+
+`reports/benchmark.json`에서 Redis 조회 p95와 목록 나이를 확인합니다. `schedule`은 최근 30분의 활성 사용자 중 갱신 대상만 예약하므로 `scheduled: 0`일 수도 있어요.
+
+갱신을 계속 처리하려면 별도 터미널에서 실행합니다.
+
+```sh
+uv run python -m sns_recommend.worker
+```
+
+## 검사와 종료
+
+각 단원에서 검사할 수 있습니다.
+
+```sh
+uv run python -m pytest -q
+```
+
+API와 worker를 `Ctrl+C`로 종료한 뒤 컨테이너를 내립니다. 데이터는 유지해요.
+
+```sh
+docker compose down
+```
+
+글 작성 시각은 다시 seed해도 바뀌지 않습니다. 48시간 뒤에는 추천 대상이 줄어들 수 있어요. **실습 데이터를 지우고 1단원부터 다시 시작할 때만** 다음 명령을 사용합니다.
+
+```sh
+docker compose down -v
+```
+
+## SNS 앱 연결
+
+SNS 앱 실행은 [앱 안내](sns-app/README.md), FastAPI 연결은 [Spring 연동 예제](https://github.com/apieceofcoding/sns-server/blob/main/sns-recommend/integrations/sns-app/README.md)를 따릅니다. 현재 앱의 추천 연결은 이전 mock이며 예제를 별도로 적용해야 해요.
