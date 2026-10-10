@@ -20,7 +20,17 @@ uv sync --locked
 
 ## Git 구성
 
-`main`에는 전환 시점의 두 서비스 코드가 함께 들어 있습니다. 서비스 폴더에서 실행한 Git 명령도 이 공통 저장소를 대상으로 합니다. 이전 저장소의 챕터 브랜치는 아직 새 저장소로 재구성하지 않았으므로, 서비스 README의 챕터 표는 학습 순서 참고용입니다.
+`main`은 현재 완성 코드입니다. `course-start → part-1-environment → … → part-9-resilience` 순서로 챕터를 진행해요. 모든 챕터에는 `sns-app/`과 당시의 `sns-recommend/`가 함께 있습니다.
+
+기존 추천 저장소의 커밋과 누적 관계를 보존했습니다. 파일을 `sns-recommend/` 아래로 옮겨 커밋 해시는 바뀌었지만 작성자, 메시지와 변경 이력은 남아 있어요. `sns-app/`은 모노레포 전환 시점의 코드로 고정되어 있으며 각 챕터에서 자동으로 연동이 완성되는 것은 아닙니다.
+
+```sh
+git switch part-1-environment
+# 다음 챕터
+git switch part-2-feed-api
+# 완성 코드
+git switch main
+```
 
 기존 SNS의 mock 클라이언트를 새 추천 API와 연결하는 예제는 [Spring 연동 안내](sns-recommend/integrations/sns-app/README.md)에 있습니다. 초기 데이터의 사용자와 게시글 ID도 두 서비스에서 맞춰야 해요.
 
