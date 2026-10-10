@@ -1,25 +1,48 @@
+from __future__ import annotations
+
 import argparse
 import json
-from .db import initialize, connection
-from .seed import seed
-from .baseline import baseline
-from .source_demo import change_post, relay
-from .indexing import index_posts
-from .retrieval import generate_embedding
-from .ranking import generate
-from .graph import start_graph
-from .evaluation import evaluate
+
+from sns_recommend.data.indexing import index_posts
+from sns_recommend.data.seed import seed
+from sns_recommend.data.source_demo import change_post, relay
+from sns_recommend.evaluation.benchmark import benchmark
+from sns_recommend.evaluation.offline import evaluate
+from sns_recommend.pipelines.generation import generate
+from sns_recommend.pipelines.graph import start_graph
+from sns_recommend.recommenders.baseline import baseline
+from sns_recommend.recommenders.retrieval import generate_embedding
+from sns_recommend.storage.postgres import connection, initialize
+from sns_recommend.worker.scheduler import schedule_active
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["init", "seed", "status", "baseline", "source-post", "relay", "index", "embedding", "generate", "graph", "evaluate"])
+    parser.add_argument(
+        "command",
+        choices=[
+            "init",
+            "seed",
+            "status",
+            "baseline",
+            "source-post",
+            "relay",
+            "index",
+            "embedding",
+            "generate",
+            "graph",
+            "evaluate",
+            "benchmark",
+            "schedule",
+        ],
+    )
     parser.add_argument("--user", type=int, default=1)
     parser.add_argument("--strategy", choices=["latest", "popular"], default="latest")
     parser.add_argument("--post", type=int, default=1001)
     parser.add_argument("--body", default="Python PostgreSQL 백엔드 실습")
     parser.add_argument("--pause-after-rerank", action="store_true")
     args = parser.parse_args()
+    result: object
     if args.command == "init":
         initialize()
         result = {"schema": "ready"}
@@ -38,11 +61,17 @@ def main():
     elif args.command == "generate":
         result = generate(args.user)
     elif args.command == "graph":
-        result = start_graph(args.user,args.pause_after_rerank)
+        result = start_graph(args.user, args.pause_after_rerank)
     elif args.command == "evaluate":
         result = evaluate()
+    elif args.command == "benchmark":
+        result = benchmark(args.user)
+    elif args.command == "schedule":
+        result = schedule_active()
     else:
         with connection() as conn:
-            result = {"posts": conn.execute("SELECT count(*) AS n FROM posts").fetchone()["n"],
-                      "users": conn.execute("SELECT count(*) AS n FROM users").fetchone()["n"]}
+            posts = conn.execute("SELECT count(*) AS n FROM posts").fetchone()
+            users = conn.execute("SELECT count(*) AS n FROM users").fetchone()
+            assert posts is not None and users is not None  # COUNT always returns a row.
+            result = {"posts": posts["n"], "users": users["n"]}
     print(json.dumps(result, ensure_ascii=False, default=str))
