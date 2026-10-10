@@ -1,6 +1,8 @@
 """Deterministic fictional posts for the course, without external model calls."""
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 SUBJECTS: dict[str, tuple[str, ...]] = {
     "backend": (
         "FastAPI의 DB 연결 풀 크기", "PostgreSQL 복합 인덱스의 컬럼 순서",
@@ -81,3 +83,20 @@ def post_body(topic: str, ordinal: int) -> str:
         raise ValueError("post ordinal must be between 0 and 39")
     subject = subjects[ordinal % len(subjects)]
     return styles[ordinal // len(subjects)].format(subject=subject)
+
+
+def post_created_at(post_id: int, reference: datetime) -> datetime:
+    """Include both inclusive 48-hour boundaries and future-post rejection cases."""
+    if not 1 <= post_id <= 200:
+        raise ValueError("post id must be between 1 and 200")
+    if reference.utcoffset() is None:
+        raise ValueError("reference must include a timezone")
+    if post_id <= 5:
+        return reference - timedelta(hours=48, minutes=1)
+    if post_id <= 10:
+        return reference - timedelta(hours=48)
+    if post_id <= 15:
+        return reference - timedelta(hours=47, minutes=59)
+    if post_id <= 20:
+        return reference + timedelta(minutes=1)
+    return reference - timedelta(minutes=post_id - 20)
