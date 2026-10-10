@@ -1,0 +1,23 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+!.env.sample
+# Editors and generated files
+.DS_Store
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+*.code-workspace
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.gradle/
+build/
+recordings/
+reports/
