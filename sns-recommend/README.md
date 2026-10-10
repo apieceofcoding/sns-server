@@ -111,3 +111,9 @@ RUN_INTEGRATION=1 uv run pytest -q
 각 브랜치는 이전 챕터 커밋을 포함합니다. 브랜치를 바꾼 뒤 `uv sync --locked`와 `uv run sns-recommend init`을 실행해요. 완료된 스냅샷을 보존하며 다음 챕터를 이어갑니다.
 
 [Spring SNS 연동 예제](integrations/sns-app/README.md)와 [코드 저장소 안내](../README.md)를 확인해요.
+
+## 실습 게시글 예시
+
+`uv run sns-recommend seed`는 주제별 세부 소재 10개와 표현 4종을 조합해, 5개 주제에 각각 40개의 서로 다른 글을 만듭니다. [post_examples.py](src/sns_recommend/post_examples.py)에서 소재와 표현을 바꿀 수 있어요. 외부 모델 호출은 없습니다.
+
+기존 ID는 건너뛰므로 이미 만든 글을 덮어쓰지 않습니다. 새 예시는 빈 실습 DB에서 확인해요. 고정된 조합의 예시이며 실제 이용자 반응이나 추천 품질을 입증하는 데이터는 아닙니다.

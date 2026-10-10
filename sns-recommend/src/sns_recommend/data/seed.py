@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+from sns_recommend.post_examples import post_body
 from sns_recommend.storage.postgres import connection
 
 TOPICS = {
@@ -29,7 +30,7 @@ def seed() -> dict[str, int | str]:
                 (
                     i,
                     10 + i % 20,
-                    f"{TOPICS[topic]}: 오늘의 기록 {i}",
+                    post_body(topic, (i - 1) // 5),
                     topic,
                     (i * 17) % 101,
                     now - timedelta(minutes=201 - i),
