@@ -22,7 +22,7 @@
 
 Python의 [src 레이아웃](https://packaging.python.org/en/latest/discussions/src-layout-vs-flat-layout/)과 FastAPI의 [APIRouter 분리](https://fastapi.tiangolo.com/tutorial/bigger-applications/)를 따릅니다. 이 원칙을 우리 서비스의 추천, 모델 호출과 실행 흐름에 맞춰 적용했어요.
 
-패키지 분리는 최종 브랜치에 적용했습니다. 1~8장 브랜치는 이전 파일 배치로 단계별 구현을 보여줍니다. `uvicorn sns_recommend.api:app`, `python -m sns_recommend.worker`와 `sns-rec` 명령은 동일해요.
+패키지 분리는 최종 브랜치에 적용했습니다. 1~8장 브랜치는 이전 파일 배치로 단계별 구현을 보여줍니다. `uvicorn sns_recommend.api:app`, `python -m sns_recommend.worker`와 `sns-recommend` 명령은 동일해요.
 
 ## 처음 실행
 
@@ -30,10 +30,10 @@ Python의 [src 레이아웃](https://packaging.python.org/en/latest/discussions/
 git switch part-9-resilience
 uv sync --locked
 docker compose up -d --wait
-uv run sns-rec init
-uv run sns-rec seed
-uv run sns-rec index
-uv run sns-rec graph --user 1
+uv run sns-recommend init
+uv run sns-recommend seed
+uv run sns-recommend index
+uv run sns-recommend graph --user 1
 docker compose --profile app up -d --build --wait
 ```
 
@@ -77,10 +77,10 @@ live/record 색인은 20개 묶음부터 처리합니다. 변경 없는 본문�
 ```sh
 # Compose worker를 잠시 멈추고 재개 실습을 진행합니다.
 docker compose --profile app stop worker
-uv run sns-rec graph --user 1 --pause-after-rerank
+uv run sns-recommend graph --user 1 --pause-after-rerank
 uv run python -m sns_recommend.worker --once
-uv run sns-rec evaluate
-uv run sns-rec benchmark
+uv run sns-recommend evaluate
+uv run sns-recommend benchmark
 uv run pytest -q
 RUN_INTEGRATION=1 uv run pytest -q
 ```
@@ -108,6 +108,6 @@ RUN_INTEGRATION=1 uv run pytest -q
 | part-8-evaluation | 네 전략의 시간 기준 평가 |
 | part-9-resilience | 호출 예산, 갱신, 측정과 전체 검증 |
 
-각 브랜치는 이전 챕터 커밋을 포함합니다. 브랜치를 바꾼 뒤 `uv sync --locked`와 `uv run sns-rec init`을 실행해요. 완료된 스냅샷을 보존하며 다음 챕터를 이어갑니다.
+각 브랜치는 이전 챕터 커밋을 포함합니다. 브랜치를 바꾼 뒤 `uv sync --locked`와 `uv run sns-recommend init`을 실행해요. 완료된 스냅샷을 보존하며 다음 챕터를 이어갑니다.
 
 [챕터 자료](../materials/README.md), [Spring SNS 연동 예제](integrations/sns-app/README.md), [서비스 설계](../materials/support/design/sns-recommend-service.md).
