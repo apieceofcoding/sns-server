@@ -4,10 +4,10 @@
 
 ```sh
 uv sync --locked
-uv run sns-rec init
-uv run sns-rec index
-uv run sns-rec embedding --user 1
-uv run sns-rec embedding --user 2
+uv run sns-recommend init
+uv run sns-recommend index
+uv run sns-recommend embedding --user 1
+uv run sns-recommend embedding --user 2
 uv run uvicorn sns_recommend.api:app --port 8001
 ```
 
