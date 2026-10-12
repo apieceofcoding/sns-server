@@ -1,5 +1,6 @@
 # Local configuration and credentials
 .env
+cookies.txt
 .env.*
 !.env.example
 !.env.sample
