@@ -1,4 +1,3 @@
-"""Deterministic fictional posts for the course, without external model calls."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -102,7 +101,6 @@ for topic in ("ai_dev", "travel_video", "fitness_food"):
 
 
 def post_body(topic: str, ordinal: int) -> str:
-    """Return one of 40 fixed examples per topic; never add a cosmetic post number."""
     subjects = SUBJECTS[topic]
     styles = STYLES[topic]
     if not 0 <= ordinal < len(subjects) * len(styles):
@@ -112,7 +110,6 @@ def post_body(topic: str, ordinal: int) -> str:
 
 
 def post_created_at(post_id: int, reference: datetime, group_size: int = 5) -> datetime:
-    """Include both inclusive 48-hour boundaries and future-post rejection cases."""
     if group_size < 1 or not 1 <= post_id <= 40 * group_size:
         raise ValueError("post id must fit the topic groups")
     if reference.utcoffset() is None:

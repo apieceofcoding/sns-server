@@ -1,7 +1,5 @@
-"""Reads from the SNS database. Posts and accounts stay there and are never copied."""
 from .db import source_connection
 
-# A feed candidate is an original post: not deleted, not a reply and not a repost.
 VISIBLE = "deleted_at IS NULL AND parent_id IS NULL AND repost_id IS NULL"
 
 

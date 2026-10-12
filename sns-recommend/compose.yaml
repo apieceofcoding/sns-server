@@ -1,6 +1,5 @@
 name: sns-recommend-course
 services:
-  # Finished recommendation ID lists. Accounts and posts stay in the SNS app database (5432).
   redis:
     image: redis:7-alpine
     ports: ["127.0.0.1:56379:6379"]
