@@ -33,7 +33,7 @@ def relay(url="http://localhost:8001"):
             WHERE delivered_at IS NULL ORDER BY created_at""").fetchall()
     for row in rows:
         response = httpx.post(url + "/internal/events", json=row["event"], timeout=5,
-                              headers={"X-Internal-Token": settings().internal_token})
+                              headers={"X-Internal-Token": settings().cursor_secret})
         response.raise_for_status()
         with source_connection() as conn:
             conn.execute("UPDATE recommendation_outbox SET delivered_at=now() WHERE id=%s",

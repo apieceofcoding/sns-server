@@ -42,7 +42,7 @@ def publish(user_id, ids, strategy, generation, snapshot_id=None, created_at=Non
 
 def cursor_encode(user_id, snapshot_id, offset):
     raw = json.dumps([user_id, snapshot_id, offset], separators=(",", ":")).encode()
-    signature = hmac.digest(settings().internal_token.encode(), raw, "sha256")
+    signature = hmac.digest(settings().cursor_secret.encode(), raw, "sha256")
     return base64.urlsafe_b64encode(raw + signature).decode()
 
 
@@ -50,7 +50,7 @@ def cursor_decode(cursor, user_id):
     try:
         blob = base64.urlsafe_b64decode(cursor)
         raw, sig = blob[:-32], blob[-32:]
-        expected = hmac.digest(settings().internal_token.encode(), raw, "sha256")
+        expected = hmac.digest(settings().cursor_secret.encode(), raw, "sha256")
         if not hmac.compare_digest(sig, expected):
             raise ValueError()
         owner, snapshot, offset = json.loads(raw)
