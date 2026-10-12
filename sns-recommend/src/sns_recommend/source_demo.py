@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 from uuid import uuid4
 import httpx
 from psycopg.types.json import Jsonb
-from .config import settings
 from .db import source_connection
 from .events import Event
 from .seed import advance_identity
@@ -32,8 +31,7 @@ def relay(url="http://localhost:8001"):
         rows = conn.execute("""SELECT * FROM recommendation_outbox
             WHERE delivered_at IS NULL ORDER BY created_at""").fetchall()
     for row in rows:
-        response = httpx.post(url + "/internal/events", json=row["event"], timeout=5,
-                              headers={"X-Internal-Token": settings().cursor_secret})
+        response = httpx.post(url + "/internal/events", json=row["event"], timeout=5)
         response.raise_for_status()
         with source_connection() as conn:
             conn.execute("UPDATE recommendation_outbox SET delivered_at=now() WHERE id=%s",
