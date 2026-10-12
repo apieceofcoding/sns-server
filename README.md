@@ -103,12 +103,15 @@ npm run dev
 
 ### part-2. 추천 생성과 조회
 
-최신순 추천을 Redis에 저장합니다. `baseline`은 저장을 마치면 종료해요.
+연동 코드가 포함된 SNS 앱을 다시 빌드하고 최신순 추천을 저장합니다. `baseline`은 저장을 마치면 종료해요.
 
 ```sh
 git switch part-2-feed-api
+cd ../sns-app
+./gradlew jibDockerBuild
+docker compose up -d --wait
+cd ../sns-recommend
 uv sync --locked
-docker compose -f ../sns-app/docker-compose.yml up -d --wait postgres
 docker compose up -d --wait
 uv run sns-recommend baseline --user 7 --strategy latest
 ```
@@ -116,7 +119,7 @@ uv run sns-recommend baseline --user 7 --strategy latest
 별도 터미널을 `sns-recommend/`에 열고 추천 API를 실행합니다. API는 계속 켜 두고 저장된 추천을 조회해요.
 
 ```sh
-uv run uvicorn sns_recommend.api:app --port 8001
+uv run uvicorn sns_recommend.api:app --host 0.0.0.0 --port 8001
 ```
 
 실습 터미널에서 추천 ID를 확인합니다. Windows에서는 `curl.exe`를 사용해요.
@@ -124,6 +127,8 @@ uv run uvicorn sns_recommend.api:app --port 8001
 ```sh
 curl -fsS -H "X-Internal-Token: course-local-token" http://localhost:8001/internal/feeds/7
 ```
+
+[SNS 앱 조회 확인](sns-app/README.md#조회-확인)에 따라 로그인한 계정의 추천을 생성하고 `/api/v1/recommendations`를 호출해요. SNS가 추천 ID를 게시글로 바꿔 응답합니다.
 
 ### part-3. 이벤트 전달
 
