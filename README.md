@@ -125,7 +125,7 @@ uv run uvicorn sns_recommend.api:app --host 0.0.0.0 --port 8001
 실습 터미널에서 추천 ID를 확인합니다. Windows에서는 `curl.exe`를 사용해요.
 
 ```sh
-curl -fsS -H "X-Internal-Token: course-local-token" http://localhost:8001/internal/feeds/7
+curl -fsS http://localhost:8001/internal/feeds/7
 ```
 
 [SNS 앱 조회 확인](sns-app/README.md#조회-확인)에 따라 로그인한 계정의 추천을 생성하고 `/api/v1/recommendations`를 호출해요. SNS가 추천 ID를 게시글로 바꿔 응답합니다.
