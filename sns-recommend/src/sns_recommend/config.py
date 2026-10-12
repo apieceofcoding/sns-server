@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     source_database_url: str = "postgresql://snsuser:snspassword@localhost:5432/snsdb"
     database_url: str = "postgresql://recommend:recommend@localhost:55432/recommend"
     redis_url: str = "redis://localhost:56379/0"
-    internal_token: str = "course-local-token"
+    cursor_secret: str = "course-local-cursor-secret"
     model_mode: str = "fixture"
     embedding_model: str = "gemini-embedding-2"
     rerank_model: str = "gemini-3.5-flash-lite"

@@ -54,7 +54,6 @@ management:
           transport: http
 recommendation:
   base-url: "${RECOMMENDATION_BASE_URL:http://localhost:8001}"
-  token: "${INTERNAL_TOKEN:course-local-token}"
 recommend:
   base-url: "${RECOMMEND_BASE_URL:http://localhost:8081}"
   connect-timeout: 200ms
