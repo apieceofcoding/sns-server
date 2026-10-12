@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     source_database_url: str = "postgresql://snsuser:snspassword@localhost:5432/snsdb"
     database_url: str = "postgresql://recommend:recommend@localhost:55432/recommend"
     redis_url: str = "redis://localhost:56379/0"
-    internal_token: str = "course-local-token"
+    cursor_secret: str = "course-local-cursor-secret"
     model_mode: Literal["fixture", "live", "record", "replay"] = "fixture"
     google_api_key: SecretStr = SecretStr("")
     embedding_model: str = "gemini-embedding-2"
