@@ -204,15 +204,21 @@ uv run sns-recommend evaluate
 
 ### part-9. 조회 측정과 자동 갱신
 
+최신순 대체와 자동 갱신을 확인합니다. SNS 앱을 다시 빌드해요.
+
 ```sh
 git switch part-9-resilience
+cd ../sns-app
+./gradlew jibDockerBuild
+docker compose up -d --wait
+cd ../sns-recommend
 uv sync --locked
 uv run sns-recommend init
 uv run sns-recommend graph --user 7
 uv run sns-recommend benchmark --user 7
 ```
 
-`reports/benchmark.json`에서 Redis 조회 속도와 목록 나이를 확인해요.
+`reports/benchmark.json`에서 Redis 조회 속도와 목록 나이를 확인해요. 추천 API를 중단하고 SNS 추천 피드를 새로 조회하면 `mode: latest`로 응답합니다. 이 목록의 다음 페이지는 `latest:` 커서를 사용해요.
 
 2단원 명령으로 추천 API를 다시 실행하고 피드를 조회합니다. 별도 터미널의 `sns-recommend/`에서 worker를 켜요.
 
