@@ -36,16 +36,14 @@ public class RecommendationClient {
                         .build(userId))
                 .retrieve()
                 .body(Feed.class);
-        if (feed == null || feed.ready() == null || feed.postIds() == null
-                || feed.postIds().size() > limit
-                || feed.postIds().stream().anyMatch(id -> id == null || id <= 0)) {
+        if (feed == null || feed.postIds() == null) {
             throw new RestClientException("Invalid recommendation response");
         }
         return feed;
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Feed(Boolean ready, @JsonProperty("post_ids") List<Long> postIds,
+    public record Feed(boolean ready, @JsonProperty("post_ids") List<Long> postIds,
                        @JsonProperty("next_cursor") String nextCursor) {
     }
 }
