@@ -90,10 +90,6 @@ SELECT id, user_id, left(content, 60) AS content, created_at FROM posts ORDER BY
 \q
 ```
 
-작성자 1~6번은 백엔드, 여행, 운동, AI 개발, 여행 유튜브, 운동 식단의 글을 각각 40개 작성합니다. 독자 7번은 개발, 8번은 여행, 9번은 운동에 관심이 있어요. 아래 실습은 독자 7번으로 진행하고, 8번과 9번으로 바꿔 비교합니다.
-
-기존 seed 데이터는 덮어쓰지 않습니다. 이 구성을 생성하려면 빈 실습 DB를 사용해요.
-
 ```sh
 # 별도 터미널에서 SNS 화면 실행 (sns-service/ 기준)
 cd sns-front
@@ -130,8 +126,6 @@ curl -fsS -H "X-Internal-Token: course-local-token" http://localhost:8001/intern
 ```sh
 git switch part-3-events
 uv sync --locked
-# 추천 DB 추가 실행: 행동과 작업, 4단원부터 벡터 저장
-docker compose up -d --wait
 uv run sns-recommend init
 uv run sns-recommend source-post --post 1001
 ```
@@ -142,7 +136,7 @@ uv run sns-recommend source-post --post 1001
 uv run sns-recommend relay
 ```
 
-`delivered: 1`을 확인해요. 게시글은 SNS DB에만 있고, 이벤트는 글 ID와 버전만 전달합니다. 이후 `init`은 필요한 DB 구조만 추가하며 데이터를 다시 만들지 않아요.
+`delivered: 1`을 확인해요. 이후 `init`은 필요한 DB 구조만 추가하며 데이터를 다시 만들지 않습니다.
 
 ### part-4. 게시글 색인
 
