@@ -2,7 +2,7 @@ package com.apiece.springboot_sns_sample.controller;
 
 import com.apiece.springboot_sns_sample.config.auth.AuthUser;
 import com.apiece.springboot_sns_sample.domain.post.PostService;
-import com.apiece.springboot_sns_sample.domain.recommendation.RecommendationPage;
+import com.apiece.springboot_sns_sample.domain.recommendation.RecommendationService.Page;
 import com.apiece.springboot_sns_sample.domain.recommendation.RecommendationService;
 import com.apiece.springboot_sns_sample.domain.user.User;
 import org.junit.jupiter.api.Test;
@@ -28,7 +28,7 @@ class RecommendationControllerTest {
         var posts = mock(PostService.class);
         User user = User.create("reader", "");
         ReflectionTestUtils.setField(user, "id", 7L);
-        when(recommendations.get(7, 20, null)).thenReturn(new RecommendationPage(List.of(), "next", "recommend"));
+        when(recommendations.get(7, 20, null)).thenReturn(new Page(List.of(), "next", "recommend"));
         when(posts.enrichWithUserContext(List.of(), user)).thenReturn(List.of());
 
         MockMvcBuilders.standaloneSetup(new RecommendationController(recommendations, posts))
@@ -66,6 +66,22 @@ class RecommendationControllerTest {
                 .perform(get("/api/v1/recommendations?cursor=old"))
                 .andExpect(status().isGone())
                 .andExpect(jsonPath("$.status").value(410));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {400, 410, 422, 500})
+    void preservesClientErrorsAndMapsUpstreamFailureTo503(int status) throws Exception {
+        var recommendations = mock(RecommendationService.class);
+        User user = User.create("reader", "");
+        ReflectionTestUtils.setField(user, "id", 7L);
+        when(recommendations.get(7, 20, "cursor")).thenThrow(
+                new org.springframework.web.client.RestClientResponseException(
+                        "upstream", org.springframework.http.HttpStatusCode.valueOf(status), "", null, null, null));
+        MockMvcBuilders.standaloneSetup(new RecommendationController(recommendations, mock(PostService.class)))
+                .setControllerAdvice(new RecommendationExceptionHandler())
+                .setCustomArgumentResolvers(resolver(user)).build()
+                .perform(get("/api/v1/recommendations?cursor=cursor"))
+                .andExpect(status().is(status == 500 ? 503 : status));
     }
 
     private HandlerMethodArgumentResolver resolver(User user) {
