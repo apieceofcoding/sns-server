@@ -62,4 +62,3 @@ curl -fsS -b cookies.txt http://localhost:8080/api/v1/recommendations
 | 추천 커서 만료 | 410, 커서 없이 새 조회 |
 | 추천 다음 페이지 연결 실패 | 503, 동일 커서로 재시도 |
 
-게시글 이벤트 전달은 [연동 예제](../sns-recommend/integrations/sns-app/README.md)를 참고해요.
