@@ -246,7 +246,5 @@ docker compose up -d --wait
 
 ## 추가 실습
 
-- [이벤트, 복구, 자동 갱신과 검사](docs/practice.md)
 - [실제 Gemini 호출](sns-recommend/README.md#모델-설정)
 - [SNS 앱 연결](sns-app/README.md#추천-연결)
-- [데이터 초기화](docs/practice.md#검사와-종료): 글 작성 후 48시간이 지나 추천 대상이 줄었을 때 확인해요.
