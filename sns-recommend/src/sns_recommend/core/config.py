@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     source_database_url: str = "postgresql://snsuser:snspassword@localhost:5432/snsdb"
     database_url: str = "postgresql://recommend:recommend@localhost:55432/recommend"
     redis_url: str = "redis://localhost:56379/0"
-    internal_token: SecretStr = Field(
-        default=SecretStr("course-local-token"), min_length=1, max_length=512
+    cursor_secret: SecretStr = Field(
+        default=SecretStr("course-local-cursor-secret"), min_length=1, max_length=512
     )
     model_mode: Literal["fixture", "live", "record", "replay"] = "fixture"
     google_api_key: SecretStr = SecretStr("")
@@ -30,11 +30,11 @@ class Settings(BaseSettings):
     output_usd_per_million: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     recordings_dir: str = "recordings"
 
-    @field_validator("internal_token")
+    @field_validator("cursor_secret")
     @classmethod
-    def validate_internal_token(cls, token: SecretStr) -> SecretStr:
+    def validate_cursor_secret(cls, token: SecretStr) -> SecretStr:
         if any(not 33 <= ord(char) <= 126 for char in token.get_secret_value()):
-            raise ValueError("internal token must contain visible ASCII characters only")
+            raise ValueError("cursor secret must contain visible ASCII characters only")
         return token
 
 

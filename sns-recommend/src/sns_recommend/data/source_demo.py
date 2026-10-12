@@ -9,7 +9,6 @@ from uuid import uuid4
 import httpx
 from psycopg.types.json import Jsonb
 
-from sns_recommend.core.config import settings
 from sns_recommend.data.events import Event
 from sns_recommend.data.seed import advance_identity
 from sns_recommend.storage.postgres import source_connection
@@ -49,7 +48,7 @@ def relay(url: str = "http://localhost:8001") -> dict[str, int]:
             url + "/internal/events",
             json=row["event"],
             timeout=5,
-            headers={"X-Internal-Token": settings().internal_token.get_secret_value()},
+
         )
         response.raise_for_status()
         with source_connection() as conn:

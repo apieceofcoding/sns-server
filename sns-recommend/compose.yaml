@@ -31,7 +31,7 @@ services:
       DATABASE_URL: postgresql://recommend:recommend@db:5432/recommend
       SOURCE_DATABASE_URL: postgresql://snsuser:snspassword@host.docker.internal:5432/snsdb
       REDIS_URL: redis://redis:6379/0
-      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-course-local-token}
+      CURSOR_SECRET: ${CURSOR_SECRET:-course-local-cursor-secret}
     depends_on:
       db: {condition: service_healthy}
       redis: {condition: service_healthy}
@@ -50,7 +50,7 @@ services:
       DATABASE_URL: postgresql://recommend:recommend@db:5432/recommend
       SOURCE_DATABASE_URL: postgresql://snsuser:snspassword@host.docker.internal:5432/snsdb
       REDIS_URL: redis://redis:6379/0
-      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-course-local-token}
+      CURSOR_SECRET: ${CURSOR_SECRET:-course-local-cursor-secret}
       MODEL_MODE: ${MODEL_MODE:-fixture}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-gemini-embedding-2}

@@ -45,7 +45,7 @@ def test_event_with_content_never_reaches_database(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr("sns_recommend.api.routers.events.accept_event", forbidden)
     response = TestClient(app).post(
         "/internal/events",
-        headers={"X-Internal-Token": "course-local-token"},
+
         json={
             "event_id": str(uuid4()),
             "kind": "profile.updated",
