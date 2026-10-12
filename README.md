@@ -1,6 +1,8 @@
 # SNS 추천 실습
 
-[SNS 화면](sns-front/README.md), [Spring API](sns-app/README.md), [Python 추천 서비스](sns-recommend/README.md)를 함께 실행합니다. **1~9단원을 순서대로 실행해요.** 기본 모델은 모의 응답을 사용하므로 API 키와 호출 비용이 필요 없습니다.
+**part-1부터 part-9까지 순서대로 진행합니다.** 기본 모델은 모의 응답이라 API 키와 호출 비용이 필요 없어요.
+
+[SNS 화면](sns-front/README.md) | [Spring API](sns-app/README.md) | [Python 추천 서비스](sns-recommend/README.md)
 
 <details>
 <summary>처음 한 번: 도구 설치 (Windows / macOS)</summary>
@@ -59,57 +61,59 @@ cd sns-service/sns-recommend
 
 ## 실습 순서
 
-모든 명령은 `sns-recommend/`에서 실행합니다.
+실습 터미널은 `sns-recommend/`를 기준으로 사용합니다. 브랜치를 바꾸기 전 추천 API와 worker를 `Ctrl+C`로 종료해요.
 
 ### part-1. SNS 실행과 데이터 관찰
 
+SNS 앱을 빌드하고 실행합니다. Windows에서는 `./gradlew` 대신 `.\gradlew.bat`를 사용해요.
+
 ```sh
 git switch part-1-environment
-
-# SNS 앱 전체 실행 (Windows: .\gradlew.bat jibDockerBuild)
 cd ../sns-app
 ./gradlew jibDockerBuild
 docker compose up -d --wait
-# 브라우저에서 http://localhost:8080/actuator/health 확인: UP
+```
 
-# 실습 데이터 생성
+[상태 확인](http://localhost:8080/actuator/health)에서 `UP`을 확인하고 실습 데이터를 만듭니다.
+
+```sh
 cd ../sns-recommend
 uv sync --locked
 uv run sns-recommend seed
-
-# DB 접속
 docker compose -f ../sns-app/docker-compose.yml exec postgres psql -U snsuser -d snsdb -P pager=off
 ```
 
+회원과 게시글을 조회하고 `\q`로 DB 접속을 종료해요.
+
 ```sql
--- 사용자, 게시글 샘플
 SELECT id, username, created_at FROM users ORDER BY id;
 SELECT id, user_id, left(content, 60) AS content, created_at FROM posts ORDER BY id LIMIT 5;
-
--- DB 접속 종료
 \q
 ```
 
+별도 터미널을 `sns-service/`에 열어 화면을 실행합니다.
+
 ```sh
-# 별도 터미널에서 SNS 화면 실행 (sns-service/ 기준)
 cd sns-front
 npm ci
 npm run dev
-# 브라우저: http://localhost:3000
 ```
 
-seed 계정에는 로그인 비밀번호가 없습니다. 데이터 생성 후 화면에서 새 계정으로 가입해 로그인과 게시글 작성을 확인해요. 피드 추천 비교 대상은 독자 7~9번입니다.
+[SNS 화면](http://localhost:3000)에서 새 계정으로 가입해 로그인과 글 작성을 확인해요. 실습 계정에는 비밀번호가 없으며, 추천 비교에는 독자 7~9번을 사용합니다.
 
-### part-2. 추천 조회
+### part-2. 추천 생성과 조회
+
+최신순 추천을 Redis에 저장합니다. `baseline`은 저장을 마치면 종료해요.
 
 ```sh
 git switch part-2-feed-api
 uv sync --locked
+docker compose -f ../sns-app/docker-compose.yml up -d --wait postgres
 docker compose up -d --wait
 uv run sns-recommend baseline --user 7 --strategy latest
 ```
 
-별도 터미널을 `sns-recommend/`에 열고 API를 실행해요.
+별도 터미널을 `sns-recommend/`에 열고 추천 API를 실행합니다. API는 계속 켜 두고 저장된 추천을 조회해요.
 
 ```sh
 uv run uvicorn sns_recommend.api:app --port 8001
@@ -126,6 +130,7 @@ curl -fsS -H "X-Internal-Token: course-local-token" http://localhost:8001/intern
 ```sh
 git switch part-3-events
 uv sync --locked
+docker compose up -d --wait
 uv run sns-recommend init
 uv run sns-recommend source-post --post 1001
 ```
@@ -136,7 +141,7 @@ uv run sns-recommend source-post --post 1001
 uv run sns-recommend relay
 ```
 
-`delivered: 1`을 확인해요. 이후 `init`은 필요한 DB 구조만 추가하며 데이터를 다시 만들지 않습니다.
+`delivered: 1`을 확인해요. `init`은 필요한 DB 구조를 추가하고 기존 데이터를 유지합니다.
 
 ### part-4. 게시글 색인
 
@@ -168,7 +173,7 @@ uv sync --locked
 uv run sns-recommend generate --user 7
 ```
 
-재정렬한 추천 ID를 확인해요. 기본값은 모의 응답입니다.
+재정렬한 추천 ID를 확인해요.
 
 ### part-7. LangGraph
 
@@ -190,7 +195,7 @@ uv run sns-recommend evaluate
 
 `reports/evaluation.json`에서 합성 데이터의 전략별 점수를 비교합니다.
 
-### part-9. 조회 측정
+### part-9. 조회 측정과 자동 갱신
 
 ```sh
 git switch part-9-resilience
@@ -202,18 +207,42 @@ uv run sns-recommend benchmark --user 7
 
 `reports/benchmark.json`에서 Redis 조회 속도와 목록 나이를 확인해요.
 
-## 종료
-
-화면 서버, API와 worker를 `Ctrl+C`로 종료한 뒤 실행합니다. 데이터는 남아요.
+2단원 명령으로 추천 API를 다시 실행하고 피드를 조회합니다. 별도 터미널의 `sns-recommend/`에서 worker를 켜요.
 
 ```sh
-# 2단원부터 실행
-docker compose down
-# SNS 앱 전체 종료
-docker compose -f ../sns-app/docker-compose.yml down
+uv run python -m sns_recommend.worker
 ```
 
-다음에 이어 할 때는 해당 단원에서 `uv sync --locked`와 `docker compose -f ../sns-app/docker-compose.yml up -d --wait`를 실행합니다. 2단원부터는 `docker compose up -d --wait`도 실행해요. `seed`는 반복하지 않아요.
+worker는 계속 실행하며 약 30초마다 갱신 대상을 점검해요. 최근 30분 안에 추천 피드를 조회했고 최근 5분 안에 생성 작업이 없는 사용자를 예약하고 처리합니다.
+
+## 종료
+
+화면 서버, 추천 API와 worker를 `Ctrl+C`로 종료합니다. 아래 명령으로 SNS 앱과 추천 저장소를 종료해요. 두 번째 명령은 part-2부터 사용하며 데이터는 유지됩니다.
+
+```sh
+docker compose -f ../sns-app/docker-compose.yml down
+docker compose down
+```
+
+<details>
+<summary>다음에 이어서 실행하기</summary>
+
+해당 브랜치의 `sns-recommend/`에서 실행해요.
+
+```sh
+uv sync --locked
+docker compose -f ../sns-app/docker-compose.yml up -d --wait
+```
+
+part-2부터는 추천 저장소도 시작합니다.
+
+```sh
+docker compose up -d --wait
+```
+
+화면, 추천 API와 worker는 필요한 단원의 명령으로 다시 실행해요.
+
+</details>
 
 ## 추가 실습
 
