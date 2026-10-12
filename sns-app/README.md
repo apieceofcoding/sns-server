@@ -22,6 +22,6 @@ curl -fsS http://localhost:8080/actuator/health
 
 ## 추천 연결
 
-현재 `/v1/rank`는 이전 강의의 mock 연동입니다. [Spring 연결 예제](https://github.com/apieceofcoding/sns-service/blob/main/sns-recommend/integrations/sns-app/README.md)를 적용해 FastAPI의 추천 ID를 원본 게시글로 바꿔 응답해요. 예제는 후반 챕터와 `main`에 있습니다.
+현재 `/v1/rank`는 이전 강의의 mock 연동입니다. [Spring 연결 예제](https://github.com/apieceofcoding/sns-service/blob/main/sns-recommend/integrations/sns-app/README.md)를 적용해 FastAPI의 추천 ID를 원본 게시글로 바꿔 응답해요.
 
 기존 클라이언트와 예제의 `RecommendClient`는 빈 이름이 같으므로 기존 코드를 정리한 뒤 적용합니다.
