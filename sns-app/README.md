@@ -27,7 +27,6 @@ curl -fsS http://localhost:8080/actuator/health
 | 설정 | 기본값 |
 |---|---|
 | `RECOMMENDATION_BASE_URL` | 로컬 `http://localhost:8001`, Docker `http://host.docker.internal:8001` |
-| `INTERNAL_TOKEN` | `course-local-token`, 추천 API와 동일하게 설정 |
 
 추천 API는 Docker에서 접근할 수 있도록 `--host 0.0.0.0`으로 실행합니다. 기존 `/v1/rank` 클라이언트는 이전 강의의 관측 데모 전용이에요.
 
