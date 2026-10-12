@@ -21,10 +21,8 @@ public class RecommendationClient {
     public RecommendationClient(RestClient.Builder builder,
                                 ClientHttpRequestFactoryBuilder<?> factory,
                                 HttpClientSettings settings,
-                                @Value("${recommendation.base-url}") String baseUrl,
-                                @Value("${recommendation.token}") String token) {
+                                @Value("${recommendation.base-url}") String baseUrl) {
         client = builder.baseUrl(baseUrl)
-                .defaultHeader("X-Internal-Token", token)
                 .requestFactory(factory.build(settings.withTimeouts(
                         Duration.ofMillis(500), Duration.ofSeconds(2))))
                 .build();

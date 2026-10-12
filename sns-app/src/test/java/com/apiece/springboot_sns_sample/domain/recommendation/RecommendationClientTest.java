@@ -26,7 +26,7 @@ class RecommendationClientTest {
     }
 
     @Test
-    void readsPythonContractAndSendsTokenAndCursor() throws Exception {
+    void readsPythonContractWithoutTokenAndSendsCursor() throws Exception {
         var client = start(200, """
                 {"ready":true,"post_ids":[3,1],"next_cursor":"next","strategy":"latest","stale":false}
                 """);
@@ -34,7 +34,7 @@ class RecommendationClientTest {
         assertThat(feed.postIds()).containsExactly(3L, 1L);
         assertThat(feed.nextCursor()).isEqualTo("next");
         assertThat(path.get()).startsWith("/internal/feeds/7?limit=2&cursor=");
-        assertThat(token.get()).isEqualTo("test-token");
+        assertThat(token.get()).isNull();
     }
 
     @Test
@@ -63,6 +63,6 @@ class RecommendationClientTest {
         });
         server.start();
         return new RecommendationClient(RestClient.builder(), ClientHttpRequestFactoryBuilder.detect(),
-                HttpClientSettings.defaults(), "http://localhost:" + server.getAddress().getPort(), "test-token");
+                HttpClientSettings.defaults(), "http://localhost:" + server.getAddress().getPort());
     }
 }

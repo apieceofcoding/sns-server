@@ -75,7 +75,7 @@ def publish(
 
 def cursor_encode(user_id: int, snapshot_id: str, offset: int) -> str:
     raw = json.dumps([user_id, snapshot_id, offset], separators=(",", ":")).encode()
-    signature = hmac.digest(settings().internal_token.get_secret_value().encode(), raw, "sha256")
+    signature = hmac.digest(settings().cursor_secret.get_secret_value().encode(), raw, "sha256")
     return base64.urlsafe_b64encode(raw + signature).decode()
 
 
@@ -85,7 +85,7 @@ def cursor_decode(cursor: str, user_id: int) -> tuple[str, int]:
             raise ValueError()
         blob = base64.b64decode(cursor, altchars=b"-_", validate=True)
         raw, sig = blob[:-32], blob[-32:]
-        expected = hmac.digest(settings().internal_token.get_secret_value().encode(), raw, "sha256")
+        expected = hmac.digest(settings().cursor_secret.get_secret_value().encode(), raw, "sha256")
         if not hmac.compare_digest(sig, expected):
             raise ValueError()
         owner, snapshot, offset = json.loads(raw)

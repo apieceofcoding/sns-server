@@ -41,7 +41,6 @@ from sns_recommend.worker.runner import run_one
 
 pytestmark = pytest.mark.integration
 READER = 7  # Seed reader interested in backend and AI. Readers write no posts.
-HEADERS = {"X-Internal-Token": "course-local-token"}
 
 
 def prepare() -> None:
@@ -237,7 +236,7 @@ def test_read_api_does_not_call_model(infra: None, monkeypatch: pytest.MonkeyPat
         raise AssertionError("read path called model")
 
     monkeypatch.setattr("sns_recommend.pipelines.graph.rerank_candidates", forbidden)
-    result = TestClient(app).get(f"/internal/feeds/{READER}", headers=HEADERS)
+    result = TestClient(app).get(f"/internal/feeds/{READER}")
     assert result.status_code == 200
     assert result.json()["post_ids"] == [1, 2, 3]
 
@@ -247,8 +246,8 @@ def test_read_api_skips_posts_deleted_in_sns_and_rejects_unknown_users(infra: No
     with source_connection() as conn:
         conn.execute("UPDATE posts SET deleted_at=now() WHERE id=2")
     client = TestClient(app)
-    assert client.get(f"/internal/feeds/{READER}", headers=HEADERS).json()["post_ids"] == [1, 3]
-    assert client.get("/internal/feeds/999", headers=HEADERS).status_code == 404
+    assert client.get(f"/internal/feeds/{READER}").json()["post_ids"] == [1, 3]
+    assert client.get("/internal/feeds/999").status_code == 404
 
 
 def test_budget_is_enforced_before_provider_call(
