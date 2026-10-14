@@ -56,9 +56,8 @@ Java와 javac는 25, Docker는 서버 정보가 나와야 합니다. 다른 Java
 
 ## 시작하기
 
-Docker Desktop을 켜고 저장소를 받습니다. 실습 터미널은 `sns-recommend/`에 둬요.
-
 ```sh
+# Docker Desktop 실행 후 저장소 받기
 git clone https://github.com/apieceofcoding/sns-service.git
 cd sns-service/sns-recommend
 ```
@@ -70,24 +69,24 @@ cd sns-service/sns-recommend
 ### part-1. SNS 실행과 데이터 관찰
 
 ```sh
+# sns-recommend/에서 SNS 앱 실행
 git switch part-1-environment
 cd ../sns-app
 ./gradlew jibDockerBuild
 docker compose up -d --wait
 ```
 
-[상태 확인](http://localhost:8080/actuator/health)에서 `UP`을 확인하고 실습 데이터를 만듭니다.
-
 ```sh
+# status: UP 확인 후 실습 데이터 생성
+curl -fsS http://localhost:8080/actuator/health
 cd ../sns-recommend
 uv sync --locked
 uv run sns-recommend seed
 docker compose -f ../sns-app/docker-compose.yml exec postgres psql -U snsuser -d snsdb -P pager=off
 ```
 
-회원과 게시글을 조회하고 `\q`로 DB 접속을 종료해요.
-
 ```sql
+-- 회원과 게시글 확인 후 종료
 SELECT id, username, created_at FROM users ORDER BY id;
 SELECT id, user_id, left(content, 60) AS content, created_at FROM posts ORDER BY id LIMIT 5;
 \q
@@ -95,9 +94,8 @@ SELECT id, user_id, left(content, 60) AS content, created_at FROM posts ORDER BY
 
 #### SNS 화면 실행
 
-새 터미널을 저장소 루트인 `sns-service/`에 열고 실행합니다. 이후 실습에서도 켜 둬요.
-
 ```sh
+# 새 터미널: sns-service/에서 실행하고 켜 두기
 cd sns-front
 npm ci
 npm run dev
@@ -107,27 +105,30 @@ npm run dev
 
 ### part-2. 추천 생성과 조회
 
-실습 터미널의 `sns-recommend/`에서 SNS 앱과 추천 저장소를 준비합니다. [SNS 화면](#sns-화면-실행)은 켜 둬요.
-
 ```sh
+# 실습 터미널: sns-recommend/ (SNS 화면은 켜 두기)
 git switch part-2-feed-api
+
+# SNS 앱 다시 빌드
 cd ../sns-app
 ./gradlew jibDockerBuild
 docker compose up -d --wait
+
+# 추천 저장소 실행
 cd ../sns-recommend
 uv sync --locked
 docker compose up -d --wait
 ```
 
-별도 터미널의 `sns-recommend/`에서 API를 실행하고 켜 둡니다.
-
 ```sh
+# 새 터미널: sns-recommend/에서 API 실행 후 켜 두기
 uv run uvicorn sns_recommend.api:app --host 0.0.0.0 --port 8001
 ```
 
-[SNS 화면](http://localhost:3000)에 로그인하고 같은 브라우저에서 [내 정보](http://localhost:8080/api/v1/users/me)의 `id`를 확인해요. 실습 터미널에서 아래 `10`을 해당 ID로 바꿔 추천을 생성합니다.
+[SNS 화면](http://localhost:3000)에 로그인하고 같은 브라우저에서 [내 정보](http://localhost:8080/api/v1/users/me)의 `id`를 확인해요.
 
 ```sh
+# 실습 터미널: 10을 로그인한 사용자 ID로 변경
 uv run sns-recommend baseline --user 10 --strategy latest
 ```
 
@@ -143,9 +144,8 @@ uv run sns-recommend init
 uv run sns-recommend source-post --post 1001
 ```
 
-2단원과 같은 명령으로 API를 다시 실행한 뒤 전송합니다.
-
 ```sh
+# 별도 터미널에서 2단원 명령으로 API를 다시 켠 뒤 전송
 uv run sns-recommend relay
 ```
 
@@ -205,9 +205,8 @@ uv run sns-recommend evaluate
 
 ### part-9. 조회 측정과 자동 갱신
 
-최신순 대체와 자동 갱신을 확인합니다. SNS 앱을 다시 빌드해요.
-
 ```sh
+# SNS 앱 다시 빌드
 git switch part-9-resilience
 cd ../sns-app
 ./gradlew jibDockerBuild
@@ -221,9 +220,9 @@ uv run sns-recommend benchmark --user 7
 
 `sns-recommend/reports/benchmark.json`에서 Redis 조회 속도와 목록 나이를 확인해요. 추천 API를 중단하고 같은 브라우저에서 [추천 피드 API](http://localhost:8080/api/v1/recommendations)를 새로고침하면 `mode: latest`로 응답합니다.
 
-2단원 명령으로 추천 API를 다시 실행하고 피드를 조회합니다. 별도 터미널의 `sns-recommend/`에서 worker를 켜요.
-
 ```sh
+# 2단원 명령으로 API를 다시 켜고 브라우저에서 추천 피드 조회
+# 새 터미널: sns-recommend/에서 worker 실행
 uv run python -m sns_recommend.worker
 ```
 
@@ -231,19 +230,18 @@ worker는 30초마다 갱신 대상을 확인해요. 최근 30분 내 조회했�
 
 ## 종료
 
-화면 서버, 추천 API와 worker를 `Ctrl+C`로 종료합니다. 아래 명령으로 SNS 앱과 추천 저장소를 종료해요. 두 번째 명령은 part-2부터 사용하며 데이터는 유지됩니다.
-
 ```sh
+# 화면, API, worker를 Ctrl+C로 종료 후 sns-recommend/에서 실행
+# 데이터는 유지
 docker compose -f ../sns-app/docker-compose.yml down
-docker compose down
+docker compose down  # part-2부터
 ```
 
-이어서 실행할 때는 해당 브랜치의 `sns-recommend/`에서 실행합니다. 마지막 명령은 part-2부터 사용해요.
-
 ```sh
+# 이어서 실행: 해당 브랜치의 sns-recommend/
 uv sync --locked
 docker compose -f ../sns-app/docker-compose.yml up -d --wait
-docker compose up -d --wait
+docker compose up -d --wait  # part-2부터
 ```
 
 화면, 추천 API와 worker도 필요한 단원의 명령으로 다시 켭니다.
