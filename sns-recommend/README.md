@@ -1,15 +1,11 @@
 # SNS 추천 서비스
 
-Python과 FastAPI로 추천을 생성하고 조회합니다. 생성 작업은 결과를 Redis에 저장하고, API는 저장된 목록을 읽어요.
-
-**part-1부터 part-9까지 순서대로 진행합니다.** 기본 모델은 모의 응답이라 API 키와 호출 비용이 필요 없어요.
-
-[실습 순서](#실습-순서) | [실습 데이터](#실습-데이터) | [저장 위치](#저장-위치) | [모델 설정](#모델-설정)
+추천을 생성해 Redis에 저장하고 FastAPI로 조회합니다. **part-1부터 part-9까지 순서대로 진행해요.** 기본 실습에는 모델 API 키가 필요 없습니다.
 
 <details>
 <summary>처음 한 번: 도구 설치 (Windows / macOS)</summary>
 
-[Node.js LTS](https://nodejs.org/)와 [Git](https://git-scm.com/downloads)을 준비합니다. `git --version`으로 설치를 확인해요.
+[Node.js LTS](https://nodejs.org/)와 [Git](https://git-scm.com/downloads)을 설치합니다.
 
 ### Windows (PowerShell)
 
@@ -20,7 +16,7 @@ winget install --exact --id EclipseAdoptium.Temurin.25.JDK
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-[Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/)을 설치하고 실행합니다. WSL 2가 없다면 관리자 PowerShell에서 `wsl --install` 후 재부팅해요. Docker는 WSL 2 기반 Linux 컨테이너를 사용합니다. 실습 명령은 Windows PowerShell에서 실행하세요.
+[Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/)을 설치하고 실행합니다. WSL 2가 없다면 관리자 PowerShell에서 `wsl --install` 후 재부팅해요. 실습은 PowerShell에서 진행하며 Docker는 Linux 컨테이너를 사용합니다.
 
 ### macOS (터미널)
 
@@ -48,26 +44,23 @@ npm --version
 uv python install 3.13
 ```
 
-Java와 javac는 25, Docker는 서버 정보가 나와야 합니다. 다른 Java가 선택되면 `JAVA_HOME`과 PATH를 JDK 25로 맞춰 주세요. Gradle은 별도 설치하지 않으며, Windows에서는 `./gradlew` 대신 `.\gradlew.bat`를 사용합니다.
+Java와 javac는 25, Docker는 서버 정보가 나와야 합니다. 다른 Java가 선택되면 `JAVA_HOME`과 PATH를 JDK 25로 맞춰요.
 
 </details>
 
 ## 시작하기
 
-Docker Desktop을 실행하고 저장소를 받습니다.
+[저장소 받기](../README.md#시작하기)를 마친 뒤 `sns-service/`에서 이동합니다. Docker Desktop을 켜 두세요.
 
 ```sh
-git clone https://github.com/apieceofcoding/sns-service.git
-cd sns-service/sns-recommend
+cd sns-recommend
 ```
 
 ## 실습 순서
 
-실습 터미널은 `sns-recommend/`를 기준으로 사용합니다. 브랜치를 바꾸기 전 추천 API와 worker를 `Ctrl+C`로 종료해요.
+명령은 `sns-recommend/`에서 시작합니다. 브랜치를 바꾸기 전 추천 API와 worker를 `Ctrl+C`로 종료해요. Windows에서는 `./gradlew`를 `.\gradlew.bat`로, `curl`을 `curl.exe`로 바꿉니다.
 
 ### part-1. SNS 실행과 데이터 관찰
-
-SNS 앱을 빌드하고 실행합니다. Windows에서는 `./gradlew` 대신 `.\gradlew.bat`를 사용해요.
 
 ```sh
 git switch part-1-environment
@@ -93,19 +86,11 @@ SELECT id, user_id, left(content, 60) AS content, created_at FROM posts ORDER BY
 \q
 ```
 
-별도 터미널을 `sns-service/`에 열어 화면을 실행합니다.
-
-```sh
-cd sns-front
-npm ci
-npm run dev
-```
-
-[SNS 화면](http://localhost:3000)에서 새 계정으로 가입해 로그인과 글 작성을 확인해요. 실습 계정에는 비밀번호가 없으며, 추천 비교에는 독자 7~9번을 사용합니다.
+별도 터미널에서 [SNS 화면 실행](../sns-front/README.md)에 따라 가입, 로그인과 글 작성을 확인해요. 추천 비교에는 독자 7~9번을 사용합니다.
 
 ### part-2. 추천 생성과 조회
 
-연동 코드가 포함된 SNS 앱을 다시 빌드하고 최신순 추천을 저장합니다. `baseline`은 저장을 마치면 종료해요.
+SNS 앱을 다시 빌드하고 최신순 추천을 저장합니다. `baseline`은 저장 후 종료해요.
 
 ```sh
 git switch part-2-feed-api
@@ -118,19 +103,19 @@ docker compose up -d --wait
 uv run sns-recommend baseline --user 7 --strategy latest
 ```
 
-별도 터미널을 `sns-recommend/`에 열고 추천 API를 실행합니다. API는 계속 켜 두고 저장된 추천을 조회해요.
+별도 터미널의 `sns-recommend/`에서 API를 실행하고 켜 둡니다.
 
 ```sh
 uv run uvicorn sns_recommend.api:app --host 0.0.0.0 --port 8001
 ```
 
-실습 터미널에서 추천 ID를 확인합니다. Windows에서는 `curl.exe`를 사용해요.
+실습 터미널에서 추천 ID를 확인해요.
 
 ```sh
 curl -fsS http://localhost:8001/internal/feeds/7
 ```
 
-[SNS 앱 조회 확인](../sns-app/README.md#조회-확인)의 가입, 로그인, 추천 생성과 조회를 진행해요. 로그인한 계정의 ID로 추천을 생성하면 SNS가 추천 ID를 게시글로 바꿔 응답합니다.
+[SNS 앱 조회 확인](../sns-app/README.md#조회-확인)에 따라 로그인한 계정의 추천 게시글도 조회합니다.
 
 ### part-3. 이벤트 전달
 
@@ -218,7 +203,7 @@ uv run sns-recommend graph --user 7
 uv run sns-recommend benchmark --user 7
 ```
 
-`reports/benchmark.json`에서 Redis 조회 속도와 목록 나이를 확인해요. 추천 API를 중단하고 SNS 추천 피드를 새로 조회하면 `mode: latest`로 응답합니다. 이 목록의 다음 페이지는 `latest:` 커서를 사용해요.
+`reports/benchmark.json`에서 Redis 조회 속도와 목록 나이를 확인해요. 추천 API를 중단하고 SNS 추천 피드를 새로 조회하면 `mode: latest`로 응답합니다.
 
 2단원 명령으로 추천 API를 다시 실행하고 피드를 조회합니다. 별도 터미널의 `sns-recommend/`에서 worker를 켜요.
 
@@ -226,7 +211,7 @@ uv run sns-recommend benchmark --user 7
 uv run python -m sns_recommend.worker
 ```
 
-worker는 계속 실행하며 약 30초마다 갱신 대상을 점검해요. 최근 30분 안에 추천 피드를 조회했고 최근 5분 안에 생성 작업이 없는 사용자를 예약하고 처리합니다.
+worker는 30초마다 갱신 대상을 확인해요. 최근 30분 내 조회했고 최근 5분 내 생성 작업이 없는 사용자의 추천을 갱신합니다.
 
 ## 종료
 
@@ -237,25 +222,15 @@ docker compose -f ../sns-app/docker-compose.yml down
 docker compose down
 ```
 
-<details>
-<summary>다음에 이어서 실행하기</summary>
-
-해당 브랜치의 `sns-recommend/`에서 실행해요.
+이어서 실행할 때는 해당 브랜치의 `sns-recommend/`에서 실행합니다. 마지막 명령은 part-2부터 사용해요.
 
 ```sh
 uv sync --locked
 docker compose -f ../sns-app/docker-compose.yml up -d --wait
-```
-
-part-2부터는 추천 저장소도 시작합니다.
-
-```sh
 docker compose up -d --wait
 ```
 
-화면, 추천 API와 worker는 필요한 단원의 명령으로 다시 실행해요.
-
-</details>
+화면, 추천 API와 worker도 필요한 단원의 명령으로 다시 켭니다.
 
 ## 실습 데이터
 
@@ -273,11 +248,7 @@ docker compose up -d --wait
 | 8 | 독자 | 여행과 여행 유튜브 |
 | 9 | 독자 | 운동과 운동 식단 |
 
-작성자는 자기 주제만 40개씩 쓰고 독자는 글을 쓰지 않아요. 본문은 주제별 소재 10개와 표현 4종으로 만듭니다. 추천 프로필은 같은 사용자 ID를 사용합니다.
-
-생성 시각 T를 기준으로 글 ID 1~6은 48시간 1분 전, 7~12는 정확히 48시간 전, 13~18은 47시간 59분 전, 19~24는 1분 뒤입니다. 25~240은 최근 1~216분이에요. 각 시간 경계에 모든 주제가 하나씩 있으며 T 기준 추천 가능한 글은 228개입니다.
-
-`seed`는 1단원에서 한 번 실행합니다. 이전 구성과 ID가 충돌하면 중단하므로 빈 실습 DB에서 시작해요. 기존 DB를 자동 삭제하거나 덮어쓰지 않습니다.
+작성자마다 40개씩 생성하며, 최신순 비교를 위해 최근 48시간의 경계와 미래 시각을 포함해요. `seed`는 빈 실습 DB에서 한 번 실행합니다. 기존 ID와 충돌하면 중단하며 데이터를 덮어쓰지 않습니다.
 
 ## 저장 위치
 
@@ -287,7 +258,7 @@ docker compose up -d --wait
 | 추천 DB (`recommend`, 55432) | 글 ID별 벡터, 행동, 작업과 체크포인트 | `DATABASE_URL` |
 | Redis (56379) | 완성된 추천 ID 목록 | `REDIS_URL` |
 
-게시글과 회원은 복사하지 않습니다. 추천 DB는 글 ID, 버전과 벡터만 저장하고, 본문과 작성 시각은 검색할 때 SNS DB에서 읽어요. 글이 바뀌면 SNS가 글 ID와 버전만 이벤트로 알리고, worker가 원본을 다시 읽어 벡터를 갱신합니다.
+본문은 SNS DB에서 읽어요. 글 변경 이벤트에는 ID와 버전만 담고, worker가 원본을 읽어 벡터를 갱신합니다.
 
 ## 모델 설정
 
