@@ -28,7 +28,7 @@ management:
   tracing:
     export:
       otlp:
-        enabled: true
+        enabled: false
     sampling:
       probability: 1.0
   metrics:
