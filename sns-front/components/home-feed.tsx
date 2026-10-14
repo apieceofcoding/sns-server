@@ -8,7 +8,7 @@ import type { Feed } from "@/lib/api/timeline"
 import { Loader2 } from "lucide-react"
 
 export function HomeFeed() {
-  const [feed, setFeed] = useState<Feed>("recommendations")
+  const [feed, setFeed] = useState<Feed>("timelines")
   const {
     data,
     isLoading,
