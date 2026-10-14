@@ -86,7 +86,14 @@ SELECT id, user_id, left(content, 60) AS content, created_at FROM posts ORDER BY
 \q
 ```
 
-별도 터미널에서 [SNS 화면 실행](../sns-front/README.md)에 따라 가입, 로그인과 글 작성을 확인해요. 추천 비교에는 독자 7~9번을 사용합니다.
+별도 터미널을 `sns-service/sns-front/`에 열어 화면을 실행하고, 실습하는 동안 켜 둡니다.
+
+```sh
+npm ci
+npm run dev
+```
+
+[SNS 화면](http://localhost:3000)에서 `recommenddemo` / `recommend1234`로 가입하고 로그인해요. 이미 가입했다면 로그인만 합니다. 글 작성도 확인하세요. `seed`로 만든 독자 7~9번은 추천 비교용이며 비밀번호가 없습니다.
 
 ### part-2. 추천 생성과 조회
 
@@ -115,7 +122,13 @@ uv run uvicorn sns_recommend.api:app --host 0.0.0.0 --port 8001
 curl -fsS http://localhost:8001/internal/feeds/7
 ```
 
-[SNS 앱 조회 확인](../sns-app/README.md#조회-확인)에 따라 로그인한 계정의 추천 게시글도 조회합니다.
+SNS 화면에 로그인한 **같은 브라우저**에서 [내 정보](http://localhost:8080/api/v1/users/me)를 열어 `id`를 확인합니다. 아래 `10`을 그 ID로 바꿔 실습 터미널에서 실행해요.
+
+```sh
+uv run sns-recommend baseline --user 10 --strategy latest
+```
+
+같은 브라우저에서 [추천 피드 API](http://localhost:8080/api/v1/recommendations)를 열어 `mode: recommend`와 `posts`를 확인합니다. 추천 결과는 JSON으로 확인해요. 401이면 [SNS 화면](http://localhost:3000)에서 다시 로그인합니다.
 
 ### part-3. 이벤트 전달
 
@@ -203,7 +216,7 @@ uv run sns-recommend graph --user 7
 uv run sns-recommend benchmark --user 7
 ```
 
-`reports/benchmark.json`에서 Redis 조회 속도와 목록 나이를 확인해요. 추천 API를 중단하고 SNS 추천 피드를 새로 조회하면 `mode: latest`로 응답합니다.
+`reports/benchmark.json`에서 Redis 조회 속도와 목록 나이를 확인해요. 추천 API를 중단하고 같은 브라우저에서 [추천 피드 API](http://localhost:8080/api/v1/recommendations)를 새로고침하면 `mode: latest`로 응답합니다.
 
 2단원 명령으로 추천 API를 다시 실행하고 피드를 조회합니다. 별도 터미널의 `sns-recommend/`에서 worker를 켜요.
 
