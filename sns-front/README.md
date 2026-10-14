@@ -1,15 +1,14 @@
 # SNS 화면
 
-Next.js로 로그인, 게시글과 타임라인 화면을 제공합니다. [전체 실습 순서](../sns-recommend/README.md#실습-순서)를 따릅니다.
+Next.js로 로그인, 게시글과 타임라인 화면을 제공합니다.
+
+Node.js LTS와 npm을 준비하고 [SNS 앱](../sns-app/README.md#실행)을 먼저 실행해요. 별도 터미널의 `sns-front/`에서 실행합니다.
 
 ```sh
-# sns-front/에서 실행
 npm ci
 npm run dev
-# 브라우저: http://localhost:3000
-# 종료: Ctrl+C
 ```
 
-Node.js LTS와 npm을 사용합니다. 먼저 SNS 앱을 실행해요. API 기본 주소는 `http://localhost:8080`이며 `.env.local`의 `NEXT_PUBLIC_API_BASE_URL`로 바꿀 수 있습니다.
+[화면 열기](http://localhost:3000)에서 가입과 로그인을 확인합니다. 종료는 `Ctrl+C`예요.
 
-원본: [springboot-sns-sample-front](https://github.com/apieceofcoding/springboot-sns-sample-front). 원본 main을 Git subtree로 가져와 이 저장소에서 함께 관리합니다.
+API 기본 주소는 `http://localhost:8080`이며 `.env.local`의 `NEXT_PUBLIC_API_BASE_URL`로 바꿀 수 있습니다.
