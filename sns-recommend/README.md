@@ -130,7 +130,7 @@ uv run uvicorn sns_recommend.api:app --host 0.0.0.0 --port 8001
 curl -fsS http://localhost:8001/internal/feeds/7
 ```
 
-[SNS 앱 조회 확인](../sns-app/README.md#조회-확인)에 따라 로그인한 계정의 추천을 생성하고 `/api/v1/recommendations`를 호출해요. SNS가 추천 ID를 게시글로 바꿔 응답합니다.
+[SNS 앱 조회 확인](../sns-app/README.md#조회-확인)의 가입, 로그인, 추천 생성과 조회를 진행해요. 로그인한 계정의 ID로 추천을 생성하면 SNS가 추천 ID를 게시글로 바꿔 응답합니다.
 
 ### part-3. 이벤트 전달
 
