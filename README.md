@@ -132,7 +132,7 @@ uv run uvicorn sns_recommend.api:app --host 0.0.0.0 --port 8001
 uv run sns-recommend baseline --user 10 --strategy latest
 ```
 
-같은 브라우저에서 [추천 피드 API](http://localhost:8080/api/v1/recommendations)를 열어 `mode: recommend`와 `posts`를 확인해요. 401이면 SNS 화면에서 다시 로그인합니다.
+[SNS 화면](http://localhost:3000)을 새로고침하고 **추천** 탭에서 게시글을 확인해요. **팔로잉** 탭은 기존 타임라인입니다. [추천 피드 API](http://localhost:8080/api/v1/recommendations)에서도 `mode: recommend`와 `posts`를 확인할 수 있습니다.
 
 ### part-3. 이벤트 전달
 
