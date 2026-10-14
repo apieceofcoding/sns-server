@@ -74,9 +74,9 @@ export function useUnrepost() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (repostId: number) => repostsApi.delete(repostId),
+    mutationFn: ({ repostId }: { postId: number; repostId: number }) => repostsApi.delete(repostId),
     // Optimistic update
-    onMutate: async ({ postId }: { postId: number; repostId: number }) => {
+    onMutate: async ({ postId }) => {
       // 진행 중인 리페치 취소
       await queryClient.cancelQueries({ queryKey: ['posts'] })
       await queryClient.cancelQueries({ queryKey: ['timeline'] })
