@@ -27,13 +27,13 @@ curl -fsS http://localhost:8080/actuator/health
 실습용 로그인 계정을 한 번 가입합니다. 이미 가입했다면 이 명령은 건너뛰어요.
 
 ```sh
-curl -fsS -X POST http://localhost:8080/api/v1/users/signup -H "Content-Type: application/json" -d '{"username":"recommend-demo","password":"recommend1234"}'
+curl -fsS -X POST http://localhost:8080/api/v1/users/signup -H "Content-Type: application/json" -d '{"username":"recommenddemo","password":"recommend1234"}'
 ```
 
 같은 계정으로 로그인하고 사용자 ID를 확인합니다. `seed`로 만든 독자 7~9번은 비밀번호가 없어 로그인에 사용할 수 없어요.
 
 ```sh
-curl -fsS -c cookies.txt -X POST http://localhost:8080/api/v1/login -d "username=recommend-demo&password=recommend1234"
+curl -fsS -c cookies.txt -X POST http://localhost:8080/api/v1/login -d "username=recommenddemo&password=recommend1234"
 curl -fsS -b cookies.txt http://localhost:8080/api/v1/users/me
 ```
 
