@@ -32,22 +32,25 @@ curl -fsS http://localhost:8080/actuator/health
 
 ### 조회 확인
 
-가입한 계정으로 로그인하고 사용자 ID를 확인합니다. 아래 계정 정보를 본인 계정으로 바꿔요. Windows에서는 `curl.exe`를 사용합니다.
+추천 API를 켜 둔 상태에서 아래 명령은 모두 `sns-recommend/`의 같은 터미널에서 실행합니다. Windows에서는 `curl.exe`를 사용해요.
+
+실습용 로그인 계정을 한 번 가입합니다. 이미 가입했다면 이 명령은 건너뛰어요.
 
 ```sh
-curl -fsS -c cookies.txt -X POST http://localhost:8080/api/v1/login -d "username=your-username&password=your-password"
+curl -fsS -X POST http://localhost:8080/api/v1/users/signup -H "Content-Type: application/json" -d '{"username":"recommend-demo","password":"recommend1234"}'
+```
+
+같은 계정으로 로그인하고 사용자 ID를 확인합니다. `seed`로 만든 독자 7~9번은 비밀번호가 없어 로그인에 사용할 수 없어요.
+
+```sh
+curl -fsS -c cookies.txt -X POST http://localhost:8080/api/v1/login -d "username=recommend-demo&password=recommend1234"
 curl -fsS -b cookies.txt http://localhost:8080/api/v1/users/me
 ```
 
-`sns-recommend/`에서 응답의 `id`를 `--user`에 넣어 추천을 생성해요.
+응답의 `id`로 추천을 생성합니다. 아래 `10`은 예시이므로 확인한 ID로 바꿔요.
 
 ```sh
 uv run sns-recommend baseline --user 10 --strategy latest
-```
-
-위 `10`은 본인 ID로 바꿉니다. 로그인했던 터미널에서 SNS API를 조회해요.
-
-```sh
 curl -fsS -b cookies.txt http://localhost:8080/api/v1/recommendations
 ```
 
