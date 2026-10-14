@@ -1,12 +1,14 @@
 "use client"
 
-import { useEffect, useRef, useCallback } from "react"
+import { useEffect, useRef, useCallback, useState } from "react"
 import { TweetComposer } from "./tweet-composer"
 import { TweetCard } from "./tweet-card"
 import { useTimeline } from "@/hooks/api/use-timeline"
+import type { Feed } from "@/lib/api/timeline"
 import { Loader2 } from "lucide-react"
 
 export function HomeFeed() {
+  const [feed, setFeed] = useState<Feed>("timelines")
   const {
     data,
     isLoading,
@@ -14,7 +16,7 @@ export function HomeFeed() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useTimeline(20)
+  } = useTimeline(20, feed)
 
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
@@ -52,6 +54,19 @@ export function HomeFeed() {
     <div className="w-full max-w-2xl mx-auto">
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border">
         <h1 className="text-xl font-bold p-4">홈</h1>
+        <div role="group" aria-label="피드 선택" className="flex">
+          {(["recommendations", "timelines"] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={feed === value}
+              onClick={() => setFeed(value)}
+              className={`flex-1 p-3 border-b-2 ${feed === value ? "border-primary font-bold" : "border-transparent text-muted-foreground"}`}
+            >
+              {value === "recommendations" ? "추천" : "팔로잉"}
+            </button>
+          ))}
+        </div>
       </div>
 
       <TweetComposer />
@@ -67,15 +82,14 @@ export function HomeFeed() {
 
         {error && (
           <div className="text-center p-8 text-muted-foreground">
-            <p>타임라인을 불러올 수 없습니다.</p>
+            <p>피드를 불러올 수 없습니다.</p>
             <p className="text-sm mt-2">나중에 다시 시도해주세요.</p>
           </div>
         )}
 
-        {!isLoading && posts.length === 0 && (
+        {!isLoading && !error && posts.length === 0 && (
           <div className="text-center p-8 text-muted-foreground">
-            <p>아직 게시물이 없습니다.</p>
-            <p className="text-sm mt-2">첫 번째 게시물을 작성해보세요!</p>
+            <p>{feed === "recommendations" ? "아직 준비된 추천 게시물이 없습니다." : "아직 게시물이 없습니다."}</p>
           </div>
         )}
 
