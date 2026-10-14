@@ -86,9 +86,12 @@ SELECT id, user_id, left(content, 60) AS content, created_at FROM posts ORDER BY
 \q
 ```
 
-별도 터미널을 `sns-service/sns-front/`에 열어 화면을 실행하고, 실습하는 동안 켜 둡니다.
+#### SNS 화면 실행
+
+새 터미널을 저장소 루트인 `sns-service/`에 열고 실행합니다. 이후 실습에서도 켜 둬요.
 
 ```sh
+cd sns-front
 npm ci
 npm run dev
 ```
@@ -97,7 +100,7 @@ npm run dev
 
 ### part-2. 추천 생성과 조회
 
-SNS 앱을 다시 빌드하고 최신순 추천을 저장합니다. `baseline`은 저장 후 종료해요.
+실습 터미널의 `sns-recommend/`에서 SNS 앱과 추천 저장소를 준비합니다. [SNS 화면](#sns-화면-실행)은 켜 둬요.
 
 ```sh
 git switch part-2-feed-api
@@ -107,7 +110,6 @@ docker compose up -d --wait
 cd ../sns-recommend
 uv sync --locked
 docker compose up -d --wait
-uv run sns-recommend baseline --user 7 --strategy latest
 ```
 
 별도 터미널의 `sns-recommend/`에서 API를 실행하고 켜 둡니다.
@@ -116,19 +118,13 @@ uv run sns-recommend baseline --user 7 --strategy latest
 uv run uvicorn sns_recommend.api:app --host 0.0.0.0 --port 8001
 ```
 
-실습 터미널에서 추천 ID를 확인해요.
-
-```sh
-curl -fsS http://localhost:8001/internal/feeds/7
-```
-
-SNS 화면에 로그인한 **같은 브라우저**에서 [내 정보](http://localhost:8080/api/v1/users/me)를 열어 `id`를 확인합니다. 아래 `10`을 그 ID로 바꿔 실습 터미널에서 실행해요.
+[SNS 화면](http://localhost:3000)에 로그인하고 같은 브라우저에서 [내 정보](http://localhost:8080/api/v1/users/me)의 `id`를 확인해요. 실습 터미널에서 아래 `10`을 해당 ID로 바꿔 추천을 생성합니다.
 
 ```sh
 uv run sns-recommend baseline --user 10 --strategy latest
 ```
 
-같은 브라우저에서 [추천 피드 API](http://localhost:8080/api/v1/recommendations)를 열어 `mode: recommend`와 `posts`를 확인합니다. 추천 결과는 JSON으로 확인해요. 401이면 [SNS 화면](http://localhost:3000)에서 다시 로그인합니다.
+같은 브라우저에서 [추천 피드 API](http://localhost:8080/api/v1/recommendations)를 열어 `mode: recommend`와 `posts`를 확인해요. 401이면 SNS 화면에서 다시 로그인합니다.
 
 ### part-3. 이벤트 전달
 
