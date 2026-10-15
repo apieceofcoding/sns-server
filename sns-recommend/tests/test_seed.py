@@ -1,11 +1,16 @@
 from __future__ import annotations
 
-from sns_recommend.data.seed import TOPICS
+from sns_recommend.data.seed import TOPICS, USERNAMES, USERS
 
 
 def test_course_topics_have_content() -> None:
     assert len(TOPICS) == 6
     assert all(len(v) > 10 for v in TOPICS.values())
+
+
+def test_seed_users_have_distinct_usernames() -> None:
+    assert set(USERNAMES) == set(USERS)
+    assert len(set(USERNAMES.values())) == len(USERS)
 
 
 def test_post_examples_are_distinct_and_deterministic() -> None:
